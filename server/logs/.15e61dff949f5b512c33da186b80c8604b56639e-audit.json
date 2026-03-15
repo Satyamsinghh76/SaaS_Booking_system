@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 90
+    },
+    "auditLog": "C:\\Users\\Anshika Singh\\Documents\\SaaS\\server\\logs\\.15e61dff949f5b512c33da186b80c8604b56639e-audit.json",
+    "files": [
+        {
+            "date": 1773388130371,
+            "name": "C:\\Users\\Anshika Singh\\Documents\\SaaS\\server\\logs\\payment-2026-03-13.log",
+            "hash": "ce7faf6085d19ae83c5308ca3a909318c4a80faa83c18ec0bac4c2e01157fd2e"
+        },
+        {
+            "date": 1773561669685,
+            "name": "C:\\Users\\Anshika Singh\\Documents\\SaaS\\server\\logs\\payment-2026-03-15.log",
+            "hash": "248fc0244fb14d1860864798b3fd07eb30749c0f6bd932be100ac1e33874015a"
+        }
+    ],
+    "hashType": "sha256"
+}

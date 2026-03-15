@@ -1,0 +1,100 @@
+# =============================================================================
+# render.yaml — Render Infrastructure-as-Code
+# =============================================================================
+# Place this file at the ROOT of your repository (or the service's root dir).
+# Render will pick it up automatically on the next deploy.
+#
+# Docs: https://render.com/docs/infrastructure-as-code
+# =============================================================================
+
+services:
+  - type: web
+    name: saas-booking-api
+    runtime: node
+
+    # If your repo root is the monorepo root, set rootDir to server/.
+    # If you connected Render directly to the server/ directory, remove rootDir.
+    rootDir: server
+
+    region: oregon          # ore (US West) — change to fra (EU) if closer to users
+    plan: free              # upgrade to starter/standard for always-on + more RAM
+
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+
+    # Render injects PORT automatically — our server already reads process.env.PORT
+    healthCheckPath: /health
+
+    # Auto-deploy on every push to the production branch
+    autoDeploy: true
+
+    envVars:
+      # ── Runtime ─────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+
+      # ── Database (Supabase) ─────────────────────────────────────────
+      # Paste your Supabase connection string here or set it in the Render dashboard.
+      # Get it from: Supabase Dashboard → Settings → Database → Connection string (URI)
+      # Use the "Connection pooling" URL (port 6543) for better scalability.
+      - key: DATABASE_URL
+        sync: false        # marks as secret — won't appear in build logs
+
+      # ── Auth ────────────────────────────────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true   # Render generates a random value on first deploy
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # ── CORS ────────────────────────────────────────────────────────
+      # Set to your Vercel deployment URL, e.g. https://your-app.vercel.app
+      - key: CORS_ORIGIN
+        sync: false
+
+      # ── Stripe ──────────────────────────────────────────────────────
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CURRENCY
+        value: usd
+      - key: STRIPE_SUCCESS_URL
+        sync: false
+      - key: STRIPE_CANCEL_URL
+        sync: false
+
+      # ── Email (SMTP) ─────────────────────────────────────────────────
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # ── Twilio SMS (optional) ────────────────────────────────────────
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+
+      # ── Google Calendar (optional) ───────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false

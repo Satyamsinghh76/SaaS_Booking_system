@@ -1,0 +1,24 @@
+{
+  "name": "saas-booking-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SaaS booking platform — Express API + Next.js frontend",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names \"API,WEB\" --prefix-colors \"blue,green\" \"npm run server\" \"npm run client\"",
+    "server": "npm --prefix server run dev",
+    "client": "pnpm --dir client run dev",
+
+    "build": "pnpm --dir client run build",
+    "start:server": "npm --prefix server run start:prod",
+    "start:client": "pnpm --dir client run start",
+    "start": "concurrently --kill-others-on-fail --names \"API,WEB\" --prefix-colors \"blue,green\" \"npm run start:server\" \"npm run start:client\"",
+    "prod": "npm run build && npm run start",
+
+    "type-check": "pnpm --dir client run type-check",
+    "test": "npm --prefix server run test",
+    "install:all": "npm install && npm install --prefix server && pnpm install --dir client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

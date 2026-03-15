@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find 'C:\\\\Users\\\\Anshika Singh\\\\Documents\\\\SaaS\\\\client' -maxdepth 1 -type f -name next.config.* -o -name tsconfig.json -o -name .env*)",
+      "Bash(timeout 10 node server.js)",
+      "Bash(npx next:*)",
+      "Bash(node -e \"console.log\\(process.arch, process.platform\\)\")",
+      "Bash(npm install:*)",
+      "Bash(rm -rf node_modules/.cache .next)",
+      "Bash(npm rebuild:*)"
+    ]
+  }
+}

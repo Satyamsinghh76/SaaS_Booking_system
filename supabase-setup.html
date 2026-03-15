@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Quick Setup - BookFlow</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .code {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Supabase Database Setup for BookFlow</h1>
+    
+    <div class="warning">
+        <strong>⚠️ Important:</strong> This setup will open Supabase in a new tab. 
+        Follow the steps below to get your database connection string.
+    </div>
+
+    <div class="step">
+        <h3>Step 1: Create Supabase Account</h3>
+        <p>Click the button below to open Supabase and sign up for a free account:</p>
+        <button onclick="window.open('https://supabase.com', '_blank')">Open Supabase →</button>
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Create New Project</h3>
+        <ol>
+            <li>Click "New Project" in the dashboard</li>
+            <li>Choose your organization</li>
+            <li>Enter project name: <code>bookflow-db</code></li>
+            <li>Set a strong database password</li>
+            <li>Choose a region closest to you</li>
+            <li>Click "Create new project"</li>
+        </ol>
+        <p><em>⏱️ This takes 2-3 minutes to provision</em></p>
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Get Connection String</h3>
+        <p>Once your project is ready:</p>
+        <ol>
+            <li>Go to <strong>Settings → Database</strong></li>
+            <li>Scroll down to <strong>Connection string</strong></li>
+            <li>Copy the <strong>Pool</strong> connection string</li>
+            <li>It looks like: <code>postgresql://postgres:[YOUR-PASSWORD]@db.******.supabase.co:5432/postgres</code></li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>Step 4: Update Your Environment</h3>
+        <p>Edit <code>server/.env</code> and replace the DATABASE_URL:</p>
+        <div class="code">
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.******.supabase.co:5432/postgres
+        </div>
+    </div>
+
+    <div class="step">
+        <h3>Step 5: Apply Database Schema</h3>
+        <ol>
+            <li>In Supabase dashboard, go to <strong>SQL Editor</strong></li>
+            <li>Open the file <code>server/db/schema.sql</code> in your code editor</li>
+            <li>Copy the entire SQL content</li>
+            <li>Paste it in the Supabase SQL Editor</li>
+            <li>Click <strong>Run</strong> to execute</li>
+        </ol>
+    </div>
+
+    <div class="success">
+        <h3>✅ All Set!</h3>
+        <p>Now you can start your development servers:</p>
+        <div class="code">npm run dev</div>
+        <p>Your app will be available at:</p>
+        <ul>
+            <li>🌐 Frontend: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+            <li>🔧 Backend API: <a href="http://localhost:5000/health" target="_blank">http://localhost:5000/health</a></li>
+        </ul>
+    </div>
+
+    <div class="warning">
+        <strong>💡 Pro Tip:</strong> Save your Supabase project URL and password securely. 
+        You'll need them if you want to deploy your application later.
+    </div>
+
+    <script>
+        // Auto-generate timestamp for reference
+        document.addEventListener('DOMContentLoaded', function() {
+            const timestamp = new Date().toLocaleString();
+            const footer = document.createElement('div');
+            footer.innerHTML = `<p style="margin-top: 30px; text-align: center; color: #666; font-size: 12px;">Setup guide generated: ${timestamp}</p>`;
+            document.body.appendChild(footer);
+        });
+    </script>
+</body>
+</html>

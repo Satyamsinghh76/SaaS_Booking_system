@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs (keep the directory, ignore the files)
+logs/*.log
+logs/*.log.gz
+
+# OS
+.DS_Store
+Thumbs.db
