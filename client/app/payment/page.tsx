@@ -9,24 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CreditCard, CheckCircle } from 'lucide-react';
-import { useAuthStore } from '@/lib/store';
-import { paymentsApi } from '@/lib/api';
+import { paymentsApi, fetchBookingById } from '@/lib/api';
+import type { Booking } from '@/lib/api/bookings';
 
-interface BookingDetails {
-  booking_id?: string;
-  id?: string;
-  service_name?: string;
-  date?: string;
-  start_time?: string;
-  end_time?: string;
-  amount?: number;
-  currency?: string;
-  status?: string;
-  payment_status?: string;
-  stripe_session_id?: string;
-  stripe_payment_intent?: string;
-  paid_at?: string;
-  receipt_url?: string;
+function formatTime12h(time24: string) {
+  const [h, m] = time24.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`
 }
 
 export default function PaymentPage() {
@@ -45,9 +35,9 @@ function PaymentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const bookingId = searchParams.get('bookingId');
-  const { user } = useAuthStore();
 
-  const [booking, setBooking] = useState<BookingDetails | null>(null);
+
+  const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,34 +55,16 @@ function PaymentPageContent() {
       return;
     }
 
-    fetchBookingDetails();
+    fetchBookingById(bookingId)
+      .then((b) => {
+        if (b.payment_status === 'paid') {
+          setError('This booking has already been paid.');
+        }
+        setBooking(b);
+      })
+      .catch((err: any) => setError(err.response?.data?.message || 'Failed to load booking details'))
+      .finally(() => setLoading(false));
   }, [bookingId]);
-
-  const fetchBookingDetails = async () => {
-    try {
-      const response = await paymentsApi.getBookingPaymentDetails(bookingId!);
-      if (response.success && response.data) {
-        // Transform API response to match BookingDetails interface
-        setBooking({
-          id: response.data.booking_id,
-          service_name: '', // Will be populated from booking details
-          date: '',
-          start_time: '',
-          end_time: '',
-          amount: response.data.amount || 0,
-          currency: response.data.currency || 'USD',
-          status: '',
-          payment_status: response.data.payment_status || 'pending',
-        });
-      } else {
-        setError(response.message || 'Failed to load booking details');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load booking details');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -127,12 +99,12 @@ function PaymentPageContent() {
 
     try {
       // Simulate payment processing
-      const response = await paymentsApi.simulatePayment(booking.id!);
+      const response = await paymentsApi.simulatePayment(booking.id);
 
       if (response.success) {
         setSuccess(true);
         setTimeout(() => {
-          router.push('/booking/success');
+          router.push('/dashboard/bookings');
         }, 2000);
       } else {
         setError(response.message || 'Payment failed');
@@ -187,7 +159,7 @@ function PaymentPageContent() {
         >
           <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
-          <p className="text-gray-600 mb-6">Redirecting to success page...</p>
+          <p className="text-gray-600 mb-6">Redirecting to your bookings...</p>
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
         </motion.div>
       </div>
@@ -228,17 +200,17 @@ function PaymentPageContent() {
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-500">Date</Label>
-                    <p className="font-semibold">{new Date(booking.date || '').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="font-semibold">{new Date(booking.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-500">Time</Label>
-                    <p className="font-semibold">{booking.start_time} - {booking.end_time}</p>
+                    <p className="font-semibold">{formatTime12h(booking.start_time)} – {formatTime12h(booking.end_time)}</p>
                   </div>
                   <div className="pt-4 border-t">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount</span>
                       <span className="text-2xl font-bold text-blue-600">
-                        ${booking.amount} {booking.currency?.toUpperCase()}
+                        ${booking.price_snapshot}
                       </span>
                     </div>
                   </div>
@@ -317,7 +289,7 @@ function PaymentPageContent() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={processing || !cardNumber || !expiry || !cvc}
+                  disabled={processing || !cardNumber || !expiry || !cvc || booking?.payment_status === 'paid'}
                 >
                   {processing ? (
                     <>
@@ -325,7 +297,7 @@ function PaymentPageContent() {
                       Processing...
                     </>
                   ) : (
-                    `Pay $${booking?.amount || 0} ${booking?.currency?.toUpperCase() || 'USD'}`
+                    `Pay $${booking?.price_snapshot || 0}`
                   )}
                 </Button>
               </form>

@@ -3,16 +3,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
-import { 
-  Calendar, 
-  Clock, 
-  DollarSign, 
+import Link from 'next/link'
+import {
+  Calendar,
+  Clock,
+  DollarSign,
   Search,
   Filter,
   MoreHorizontal,
   X,
   CalendarDays,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,6 +46,13 @@ import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import type { Booking as APIBooking, BookingStatus } from '@/lib/api/bookings'
 
+function formatTime12h(time24: string) {
+  const [h, m] = time24.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`
+}
+
 function mapAPIBooking(b: APIBooking): Booking {
   return {
     id: b.id,
@@ -57,6 +66,7 @@ function mapAPIBooking(b: APIBooking): Booking {
         : b.status === 'completed'
         ? 'completed'
         : 'cancelled',
+    paymentStatus: b.payment_status,
     price: b.price_snapshot,
   }
 }
@@ -229,7 +239,7 @@ export default function BookingsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Time</span>
-                <span className="font-medium">{cancellingBooking.time}</span>
+                <span className="font-medium">{formatTime12h(cancellingBooking.time)}</span>
               </div>
             </div>
           )}
@@ -271,12 +281,22 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
             <h3 className="font-semibold text-foreground">
               {booking.serviceName}
             </h3>
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className={cn('capitalize border-0', statusStyles[booking.status])}
             >
               {booking.status}
             </Badge>
+            {booking.paymentStatus === 'paid' ? (
+              <Badge variant="secondary" className="bg-success/10 text-success border-0">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Paid
+              </Badge>
+            ) : booking.status === 'upcoming' ? (
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
+                Unpaid
+              </Badge>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -285,7 +305,7 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
             </span>
             <span className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
-              {booking.time}
+              {formatTime12h(booking.time)}
             </span>
             <span className="flex items-center gap-1.5 font-medium text-foreground">
               <DollarSign className="h-4 w-4" />
@@ -298,6 +318,13 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
         <div className="flex items-center gap-2 shrink-0">
           {booking.status === 'upcoming' && (
             <>
+              {booking.paymentStatus !== 'paid' && (
+                <Link href={`/payment?bookingId=${booking.id}`}>
+                  <Button size="sm" className="bg-primary hover:bg-primary/90">
+                    Pay Now
+                  </Button>
+                </Link>
+              )}
               <Button variant="outline" size="sm">
                 Reschedule
               </Button>

@@ -104,6 +104,46 @@ const UserModel = {
     return bcrypt.compare(plaintext, hash);
   },
 
+  /**
+   * Find or create a user from Google OAuth.
+   * If the email already exists, returns the existing user.
+   * Otherwise creates a new user with a random password (OAuth users don't need one).
+   */
+  async findOrCreateFromGoogle({ name, email }) {
+    const existing = await this.findByEmail(email);
+    if (existing) return { user: existing, isNew: false };
+
+    const randomPassword = require('crypto').randomBytes(32).toString('hex');
+    const user = await this.create({ name, email, password: randomPassword });
+    return { user, isNew: true };
+  },
+
+  /** Store a verification token for a user. */
+  async setVerificationToken(userId, token, expiresAt) {
+    await query(
+      'UPDATE users SET verification_token = $1, verification_expires = $2 WHERE id = $3',
+      [token, expiresAt, userId]
+    );
+  },
+
+  /** Verify a user's email using a token. Returns the user or null. */
+  async verifyEmail(token) {
+    const { rows } = await query(
+      `SELECT id, name, email, role FROM users
+       WHERE verification_token = $1
+         AND verification_expires > DATETIME('now')`,
+      [token]
+    );
+    if (!rows[0]) return null;
+
+    await query(
+      `UPDATE users SET email_verified = 1, verification_token = NULL, verification_expires = NULL
+       WHERE id = $1`,
+      [rows[0].id]
+    );
+    return rows[0];
+  },
+
   /** Check if an email is already taken. */
   async emailExists(email) {
     const { rows } = await query(

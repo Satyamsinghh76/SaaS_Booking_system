@@ -25,6 +25,7 @@ export interface Booking {
   date: string
   time: string
   status: 'upcoming' | 'completed' | 'cancelled'
+  paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'failed'
   customerName?: string
   customerEmail?: string
   price: number
@@ -275,7 +276,7 @@ export function generateTimeSlots(date: Date): TimeSlot[] {
   hours.forEach((hour, index) => {
     const pseudo = Math.sin(seed * 9301 + index * 49297) * 0.5 + 0.5
     const isAvailable = pseudo > 0.3 // ~70% availability
-    const time = hour < 12 ? `${hour}:00 AM` : hour === 12 ? '12:00 PM' : `${hour - 12}:00 PM`
+    const time = `${hour.toString().padStart(2, '0')}:00`
     slots.push({
       id: `slot-${index}`,
       time,

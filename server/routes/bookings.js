@@ -10,6 +10,7 @@ const {
   updatePaymentStatus,
   getBookingEvents,
   cancelBooking,
+  getBookedSlots,
 } = require('../controllers/bookingController');
 
 const { authenticate, requireAdmin } = require('../middleware/auth');
@@ -26,6 +27,7 @@ const {
 router.use(authenticate);
 
 router.post('/', createBookingRules, createBooking);
+router.get('/booked-slots', getBookedSlots);
 router.get('/', listBookingsRules, getBookings);
 router.get('/:id', idParamRules, getBookingById);
 router.patch('/:id/status', updateStatusRules, updateStatus);

@@ -1,5 +1,7 @@
+const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const UserModel = require('../models/userModel');
+const NotificationService = require('../services/notificationService');
 const {
   signAccessToken,
   signRefreshToken,
@@ -52,7 +54,12 @@ const signup = async (req, res, next) => {
     // Create user (model handles hashing)
     const user = await UserModel.create({ name, email, password });
 
-    // Issue tokens
+    // Generate verification token (URL-safe, 48 bytes → 64 chars)
+    const verificationToken = crypto.randomBytes(48).toString('base64url');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    await UserModel.setVerificationToken(user.id, verificationToken, expiresAt);
+
+    // Issue tokens (user can log in immediately, but email is unverified)
     const accessToken  = signAccessToken(user);
     const refreshToken = signRefreshToken(user);
     await saveRefreshToken(user.id, refreshToken);
@@ -60,14 +67,25 @@ const signup = async (req, res, next) => {
     // Refresh token → HttpOnly cookie; access token → JSON body
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
-      message: 'Account created successfully.',
+      message: 'Account created. Please check your email to verify your account.',
       data: {
         user,
         access_token: accessToken,
         expires_in: process.env.JWT_EXPIRES_IN || '15m',
       },
+    });
+
+    // Send verification email (fire-and-forget — never blocks the response)
+    const serverUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const verificationUrl = `${serverUrl.replace(/\/$/, '')}/api/auth/verify-email?token=${verificationToken}`;
+    console.log(`📧 [signup] Verification link for ${email}: ${verificationUrl}`);
+
+    NotificationService.sendVerificationEmail({
+      email,
+      name,
+      verificationUrl,
     });
   } catch (err) {
     next(err);
@@ -210,4 +228,89 @@ const me = async (req, res, next) => {
   }
 };
 
-module.exports = { signup, login, refresh, logout, me };
+/**
+ * POST /api/auth/google
+ * Verify a Google ID token, find or create the user, and return JWT tokens.
+ */
+const googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ success: false, message: 'Google credential is required.' });
+    }
+
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch {
+      return res.status(401).json({ success: false, message: 'Invalid Google token.' });
+    }
+
+    const payload = ticket.getPayload();
+    const { name, email } = payload;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Google account has no email.' });
+    }
+
+    const { user } = await UserModel.findOrCreateFromGoogle({ name: name || email.split('@')[0], email });
+
+    if (!user.is_active) {
+      return res.status(403).json({ success: false, message: 'Account is deactivated.' });
+    }
+
+    const accessToken  = signAccessToken(user);
+    const refreshToken = signRefreshToken(user);
+    await saveRefreshToken(user.id, refreshToken);
+
+    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
+
+    return res.json({
+      success: true,
+      message: 'Logged in with Google.',
+      data: {
+        user,
+        access_token: accessToken,
+        expires_in: process.env.JWT_EXPIRES_IN || '15m',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/auth/verify-email?token=...
+ * Verify the user's email and redirect to the frontend.
+ */
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Verification token is required.' });
+    }
+
+    const user = await UserModel.verifyEmail(token);
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification link.' });
+    }
+
+    console.log(`✅ [auth] Email verified for ${user.email}`);
+
+    // Redirect to login page with a success message
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    return res.redirect(`${clientUrl}/login?verified=true`);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { signup, login, refresh, logout, me, googleLogin, verifyEmail };

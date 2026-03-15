@@ -23,6 +23,13 @@ import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import type { Booking as APIBooking } from '@/lib/api/bookings'
 
+function formatTime12h(time24: string) {
+  const [h, m] = time24.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`
+}
+
 function mapAPIBooking(b: APIBooking): Booking {
   return {
     id: b.id,
@@ -36,6 +43,7 @@ function mapAPIBooking(b: APIBooking): Booking {
         : b.status === 'completed'
         ? 'completed'
         : 'cancelled',
+    paymentStatus: b.payment_status,
     price: b.price_snapshot,
   }
 }
@@ -222,14 +230,23 @@ export default function DashboardPage() {
                     {booking.serviceName}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(booking.date), 'MMM d, yyyy')} at {booking.time}
+                    {format(new Date(booking.date), 'MMM d, yyyy')} at {formatTime12h(booking.time)}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="shrink-0 text-right flex flex-col items-end gap-1.5">
                   <p className="font-medium text-foreground">${booking.price}</p>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
-                    Upcoming
-                  </Badge>
+                  {booking.paymentStatus === 'paid' ? (
+                    <Badge variant="secondary" className="bg-success/10 text-success border-0">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Paid
+                    </Badge>
+                  ) : (
+                    <Link href={`/payment?bookingId=${booking.id}`}>
+                      <Button size="sm" variant="outline" className="h-7 text-xs">
+                        Pay Now
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             ))}

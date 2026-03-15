@@ -15,7 +15,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // ── Schema version — bump this when adding new tables/columns ──
-const SCHEMA_VERSION  = '6';
+const SCHEMA_VERSION  = '8';
 const versionFilePath = path.join(dataDir, 'schema_version.txt');
 const existingVersion = fs.existsSync(versionFilePath)
   ? fs.readFileSync(versionFilePath, 'utf8').trim()
@@ -148,16 +148,19 @@ db.serialize(() => {
 
   // ── users ────────────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS users (
-    id            TEXT PRIMARY KEY DEFAULT ${UUID_DEFAULT},
-    name          TEXT NOT NULL,
-    email         TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role          TEXT DEFAULT 'user',
-    phone_number  TEXT,
-    phone_verified BOOLEAN DEFAULT 0,
-    is_active     BOOLEAN DEFAULT 1,
-    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+    id                  TEXT PRIMARY KEY DEFAULT ${UUID_DEFAULT},
+    name                TEXT NOT NULL,
+    email               TEXT UNIQUE NOT NULL,
+    password_hash       TEXT NOT NULL,
+    role                TEXT DEFAULT 'user',
+    phone_number        TEXT,
+    phone_verified      BOOLEAN DEFAULT 0,
+    email_verified      BOOLEAN DEFAULT 0,
+    verification_token  TEXT,
+    verification_expires DATETIME,
+    is_active           BOOLEAN DEFAULT 1,
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
   // ── services ─────────────────────────────────────────────────
@@ -205,6 +208,11 @@ db.serialize(() => {
     FOREIGN KEY (user_id)    REFERENCES users(id),
     FOREIGN KEY (service_id) REFERENCES services(id)
   )`);
+
+  // ── Unique index: prevent double-booking the same slot ──────
+  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_no_overlap
+    ON bookings (service_id, booking_date, start_time)
+    WHERE status NOT IN ('cancelled', 'no_show')`);
 
   // ── availability ─────────────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS availability (
@@ -342,9 +350,9 @@ db.serialize(() => {
   // Pre-hashed 'Admin123!' (bcrypt, 12 rounds) — password for dev seed accounts
   const DEFAULT_HASH = '$2a$12$dVNXmsx4TmppehBN9rB/H.7dfwws6YYN3ArNxLuYBDlBgF052Ic1i';
 
-  db.run(`INSERT OR IGNORE INTO users (id, name, email, password_hash, role) VALUES
-    ('00000000-0000-4000-a000-000000000001', 'Admin User', 'admin@bookflow.com', '${DEFAULT_HASH}', 'admin'),
-    ('00000000-0000-4000-a000-000000000002', 'Test User',  'user@bookflow.com',  '${DEFAULT_HASH}', 'user')`);
+  db.run(`INSERT OR IGNORE INTO users (id, name, email, password_hash, role, email_verified) VALUES
+    ('00000000-0000-4000-a000-000000000001', 'Admin User', 'admin@bookflow.com', '${DEFAULT_HASH}', 'admin', 1),
+    ('00000000-0000-4000-a000-000000000002', 'Test User',  'user@bookflow.com',  '${DEFAULT_HASH}', 'user', 1)`);
 
   db.run(`INSERT OR IGNORE INTO services (id, name, description, duration_minutes, price) VALUES
     ('00000000-0000-4000-a000-000000000010', 'Consultation', 'Business consultation service', 60,  100.00),

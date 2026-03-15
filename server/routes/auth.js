@@ -2,7 +2,7 @@
 
 const router = require('express').Router();
 const { body } = require('express-validator');
-const { signup, login, refresh, logout, me } = require('../controllers/authController');
+const { signup, login, refresh, logout, me, googleLogin, verifyEmail } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 
 const signupRules = [
@@ -36,6 +36,8 @@ const loginRules = [
 
 router.post('/signup', signupRules, signup);
 router.post('/login', loginRules, login);
+router.post('/google', googleLogin);
+router.get('/verify-email', verifyEmail);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', authenticate, me);

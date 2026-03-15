@@ -19,9 +19,10 @@
 
 'use strict';
 
-const { sendEmail }                  = require('../utils/emailUtil');
-const { bookingConfirmedTemplate }   = require('../templates/email/bookingConfirmed');
-const { bookingCancelledTemplate }   = require('../templates/email/bookingCancelled');
+const { sendEmail }                    = require('../utils/emailUtil');
+const { bookingConfirmedTemplate }     = require('../templates/email/bookingConfirmed');
+const { bookingCancelledTemplate }     = require('../templates/email/bookingCancelled');
+const { emailVerificationTemplate }    = require('../templates/email/emailVerification');
 
 // ── Internal helpers ──────────────────────────────────────────
 
@@ -61,6 +62,7 @@ const buildPayload = (booking) => ({
  * @param {boolean} fireAndForget - if true, don't await the promise
  */
 const dispatchEmail = (mailOptions, eventLabel, fireAndForget = true) => {
+  console.log(`📧 [notification] Sending "${eventLabel}" to ${mailOptions.to}`);
   const promise = sendEmail(mailOptions).catch((err) => {
     // Log but do not re-throw — email is non-critical
     console.error(
@@ -118,6 +120,30 @@ const NotificationService = {
     return dispatchEmail(
       { to: payload.userEmail, ...template },
       `booking_cancelled:${payload.bookingRef}`,
+      !shouldAwait,
+    );
+  },
+
+  /**
+   * Send an email verification link after signup.
+   *
+   * @param {object}  params
+   * @param {string}  params.email
+   * @param {string}  params.name
+   * @param {string}  params.verificationUrl
+   * @param {object}  [options]
+   * @param {boolean} [options.await]
+   */
+  sendVerificationEmail({ email, name, verificationUrl }, { await: shouldAwait = false } = {}) {
+    console.log(`📧 [verification] Sending verification email to ${email}`);
+    const template = emailVerificationTemplate({
+      userName: name,
+      verificationUrl,
+    });
+
+    return dispatchEmail(
+      { to: email, ...template },
+      `email_verification:${email}`,
       !shouldAwait,
     );
   },

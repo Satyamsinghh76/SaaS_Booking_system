@@ -59,7 +59,7 @@ const resolveServiceAndEndTime = async (serviceId, startTime) => {
 
 const createBooking = async (req, res, next) => {
   try {
-    const { service_id, date, start_time, notes } = req.body;
+    const { service_id, date, start_time, notes, customer_name, customer_email } = req.body;
     const userId = req.user.id;
 
     const { service, endTime } = await resolveServiceAndEndTime(service_id, start_time);
@@ -74,11 +74,23 @@ const createBooking = async (req, res, next) => {
       notes,
     });
 
-    return res.status(201).json({
+    // Response first, then email (fire-and-forget)
+    res.status(201).json({
       success: true,
       message: 'Booking created. Awaiting confirmation.',
       data:    { ...booking, service_name: service.name, duration_minutes: service.duration_minutes },
     });
+
+    // Send confirmation email asynchronously — never blocks the response
+    BookingModel.findById(booking.id)
+      .then((fullBooking) => {
+        if (!fullBooking) return;
+        // Use the email/name from the booking form if provided
+        if (customer_email) fullBooking.user_email = customer_email;
+        if (customer_name)  fullBooking.user_name  = customer_name;
+        NotificationService.sendBookingConfirmed(fullBooking);
+      })
+      .catch((err) => console.error('[booking] Failed to send confirmation email:', err.message));
   } catch (err) {
     if (err.code === 'SLOT_CONFLICT' || err.statusCode === 409 || err.code === '23P01') {
       return res.status(409).json({
@@ -228,6 +240,29 @@ const getBookingEvents = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/bookings/booked-slots?service_id=...&date=YYYY-MM-DD
+ * Returns start_time values already booked for a service on a given date.
+ */
+const getBookedSlots = async (req, res, next) => {
+  try {
+    const { service_id, date } = req.query;
+    if (!service_id || !date) {
+      return res.status(400).json({ success: false, message: 'service_id and date are required.' });
+    }
+    const { rows } = await query(
+      `SELECT start_time FROM bookings
+       WHERE service_id = $1
+         AND booking_date = $2
+         AND status NOT IN ('cancelled', 'no_show')`,
+      [service_id, date]
+    );
+    return res.json({ success: true, data: rows.map(r => r.start_time) });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   createBooking,
   getBookings,
@@ -236,4 +271,5 @@ module.exports = {
   cancelBooking,
   updatePaymentStatus,
   getBookingEvents,
+  getBookedSlots,
 };

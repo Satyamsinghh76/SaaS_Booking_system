@@ -5,15 +5,14 @@ import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, addDays, isSameDay } from 'date-fns'
 import { 
-  Calendar, 
-  Clock, 
-  DollarSign, 
-  ArrowRight, 
-  ArrowLeft, 
-  Check, 
-  ChevronLeft, 
-  ChevronRight,
-  Loader2
+  Calendar,
+  Clock,
+  DollarSign,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  Loader2,
+  Sparkles
 } from 'lucide-react'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
@@ -29,9 +28,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useBookingStore, generateTimeSlots, type TimeSlot } from '@/lib/store'
-import { fetchServices } from '@/lib/api'
+import { fetchServices, createBooking, fetchBookedSlots, fetchRecommendedSlots } from '@/lib/api'
+import type { Recommendation } from '@/lib/api/bookings'
 import { PageTransition } from '@/components/ui/motion'
 import { cn } from '@/lib/utils'
+
+function formatTime12h(time24: string) {
+  const [h, m] = time24.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`
+}
 
 function BookingContent() {
   const searchParams = useSearchParams()
@@ -100,11 +107,29 @@ function BookingContent() {
     return dates
   }, [])
 
-  // Generate time slots for selected date
-  const timeSlots = useMemo(() => {
+  // Generate time slots and mark already-booked ones as unavailable
+  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set())
+
+  const baseTimeSlots = useMemo(() => {
     if (!selectedDate) return []
     return generateTimeSlots(selectedDate)
   }, [selectedDate])
+
+  // Fetch booked slots from backend when service + date are selected
+  useEffect(() => {
+    if (!selectedService || !selectedDate) return
+    setBookedSlots(new Set())
+    fetchBookedSlots(selectedService.id, format(selectedDate, 'yyyy-MM-dd'))
+      .then((slots) => setBookedSlots(new Set(slots)))
+      .catch(() => {/* keep all slots available on error */})
+  }, [selectedService, selectedDate])
+
+  const timeSlots = useMemo(() => {
+    return baseTimeSlots.map((slot) => ({
+      ...slot,
+      available: slot.available && !bookedSlots.has(slot.time),
+    }))
+  }, [baseTimeSlots, bookedSlots])
 
   const handleServiceSelect = (service: typeof services[0]) => {
     setSelectedService(service)
@@ -113,6 +138,7 @@ function BookingContent() {
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date)
+    setSelectedSlot(null)
   }
 
   const handleSlotSelect = (slot: TimeSlot) => {
@@ -121,26 +147,71 @@ function BookingContent() {
     setStep(3)
   }
 
+  const [bookingError, setBookingError] = useState<string | null>(null)
+
+  // Recommendations — auto-fetch when service + date are selected
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [loadingRecs, setLoadingRecs] = useState(false)
+
+  useEffect(() => {
+    if (!selectedService || !selectedDate) {
+      setRecommendations([])
+      return
+    }
+    setLoadingRecs(true)
+    fetchRecommendedSlots(selectedService.id)
+      .then((recs) => {
+        // Filter to only show recommendations for the selected date
+        const dateStr = format(selectedDate, 'yyyy-MM-dd')
+        const filtered = recs.filter(r => r.date === dateStr)
+        setRecommendations(filtered)
+      })
+      .catch(() => setRecommendations([]))
+      .finally(() => setLoadingRecs(false))
+  }, [selectedService, selectedDate])
+
+  const handleSelectRecommendation = (rec: Recommendation) => {
+    const matchingSlot = timeSlots.find(s => s.time === rec.start_time)
+    if (matchingSlot) {
+      setSelectedSlot(matchingSlot)
+    } else {
+      setSelectedSlot({ id: `rec-${rec.rank}`, time: rec.start_time, available: true })
+    }
+    setStep(3)
+  }
+
   const handleConfirmBooking = async () => {
     if (!selectedService || !selectedDate || !selectedSlot) return
-    
+
     setIsConfirming(true)
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    addBooking({
-      id: Date.now().toString(),
-      serviceId: selectedService.id,
-      serviceName: selectedService.name,
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      time: selectedSlot.time,
-      status: 'upcoming',
-      customerName: customerInfo.name,
-      customerEmail: customerInfo.email,
-      price: selectedService.price,
-    })
-    
-    setIsConfirming(false)
-    setShowConfirmation(true)
+    setBookingError(null)
+    try {
+      const booking = await createBooking({
+        service_id: selectedService.id,
+        date: format(selectedDate, 'yyyy-MM-dd'),
+        start_time: selectedSlot.time,
+        customer_name: customerInfo.name,
+        customer_email: customerInfo.email,
+      })
+
+      addBooking({
+        id: booking.id,
+        serviceId: booking.service_id,
+        serviceName: booking.service_name,
+        date: booking.date,
+        time: booking.start_time,
+        status: 'upcoming',
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        price: booking.price_snapshot,
+      })
+
+      setShowConfirmation(true)
+    } catch {
+      setBookingError('Failed to create booking. Please try again.')
+    } finally {
+      setIsConfirming(false)
+    }
   }
 
   const resetBooking = () => {
@@ -355,14 +426,95 @@ function BookingContent() {
                     </div>
                   </div>
 
-                  {/* Time slot selection */}
+                  {/* Suggested Times — auto-loaded when date is selected */}
+                  {selectedDate && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <div className="flex items-center gap-2 mb-4">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        <h3 className="text-lg font-semibold text-foreground">
+                          Suggested Times
+                        </h3>
+                      </div>
+
+                      {/* Loading skeleton */}
+                      {loadingRecs && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="p-4 bg-card rounded-xl border animate-pulse">
+                              <div className="h-3 w-16 bg-muted rounded mb-3" />
+                              <div className="h-5 w-24 bg-muted rounded mb-2" />
+                              <div className="h-3 w-20 bg-muted rounded" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      {!loadingRecs && recommendations.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {recommendations.map((rec) => (
+                            <motion.button
+                              key={`${rec.date}-${rec.start_time}`}
+                              onClick={() => handleSelectRecommendation(rec)}
+                              className="text-left p-4 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl border border-primary/20 hover:border-primary/40 hover:shadow-lg transition-all"
+                              whileHover={{ y: -2 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-xs font-medium text-primary">
+                                  #{rec.rank} Pick
+                                </span>
+                              </div>
+                              <p className="font-semibold text-foreground">
+                                {formatTime12h(rec.start_time)}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {formatTime12h(rec.start_time)} – {formatTime12h(rec.end_time)}
+                              </p>
+                              {rec.label && (
+                                <p className="text-xs text-primary/70 mt-2 leading-tight">{rec.label}</p>
+                              )}
+                            </motion.button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* No recommendations */}
+                      {!loadingRecs && recommendations.length === 0 && (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-muted/50 rounded-xl text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 shrink-0" />
+                          No recommended slots available for this date. Pick a time below.
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* Divider between suggestions and manual */}
+                  {selectedDate && (
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-3 text-muted-foreground">
+                          Or pick a time
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Manual time slot selection */}
                   {selectedDate && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
                       <h3 className="text-lg font-semibold text-foreground mb-4">
-                        Available times for {format(selectedDate, 'MMMM d, yyyy')}
+                        All available times for {format(selectedDate, 'MMMM d, yyyy')}
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {timeSlots.map((slot) => {
@@ -376,14 +528,14 @@ function BookingContent() {
                                 'p-3 rounded-xl border text-center transition-all',
                                 slot.available
                                   ? isSelected
-                                    ? 'bg-primary text-primary-foreground border-primary animate-glow'
+                                    ? 'bg-primary text-primary-foreground border-primary'
                                     : 'bg-card hover:border-primary/20 hover:shadow-md'
                                   : 'bg-muted/50 text-muted-foreground cursor-not-allowed'
                               )}
                               whileHover={slot.available ? { scale: 1.05 } : {}}
                               whileTap={slot.available ? { scale: 0.95 } : {}}
                             >
-                              <span className="font-medium">{slot.time}</span>
+                              <span className="font-medium">{formatTime12h(slot.time)}</span>
                               {!slot.available && (
                                 <span className="block text-xs mt-1">Unavailable</span>
                               )}
@@ -426,7 +578,7 @@ function BookingContent() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Time</span>
-                        <span className="font-medium text-foreground">{selectedSlot.time}</span>
+                        <span className="font-medium text-foreground">{formatTime12h(selectedSlot.time)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Duration</span>
@@ -467,6 +619,13 @@ function BookingContent() {
                     </div>
                   </div>
 
+                  {/* Booking error */}
+                  {bookingError && (
+                    <p className="text-sm text-destructive text-center bg-destructive/10 rounded-md px-3 py-2">
+                      {bookingError}
+                    </p>
+                  )}
+
                   {/* Actions */}
                   <div className="flex gap-4">
                     <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
@@ -502,50 +661,39 @@ function BookingContent() {
       {/* Confirmation dialog */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <DialogContent className="sm:max-w-md">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', bounce: 0.3 }}
-          >
-            <DialogHeader className="text-center">
-              <motion.div 
-                className="mx-auto w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mb-4"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: 'spring', bounce: 0.5 }}
-              >
-                <Check className="h-8 w-8 text-success" />
-              </motion.div>
-              <DialogTitle className="text-2xl">Booking Confirmed!</DialogTitle>
-              <DialogDescription className="text-base">
-                Your appointment has been successfully booked. A confirmation email will be sent to {customerInfo.email}.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mt-6 p-4 bg-muted/50 rounded-xl space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Service</span>
-                <span className="font-medium">{selectedService?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Date</span>
-                <span className="font-medium">
-                  {selectedDate && format(selectedDate, 'MMMM d, yyyy')}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Time</span>
-                <span className="font-medium">{selectedSlot?.time}</span>
-              </div>
+          <DialogHeader className="text-center items-center">
+            <div className="mx-auto w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
+              <Check className="h-8 w-8 text-success" />
             </div>
-            <div className="mt-6 flex gap-4">
-              <Button variant="outline" className="flex-1" onClick={resetBooking}>
-                Book another
-              </Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" asChild>
-                <a href="/dashboard">View bookings</a>
-              </Button>
+            <DialogTitle className="text-2xl">Booking Confirmed!</DialogTitle>
+            <DialogDescription className="text-base">
+              Your appointment has been successfully booked. A confirmation email will be sent to {customerInfo.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4 bg-muted/50 rounded-xl space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service</span>
+              <span className="font-medium">{selectedService?.name}</span>
             </div>
-          </motion.div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Date</span>
+              <span className="font-medium">
+                {selectedDate && format(selectedDate, 'MMMM d, yyyy')}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Time</span>
+              <span className="font-medium">{selectedSlot ? formatTime12h(selectedSlot.time) : ''}</span>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <Button variant="outline" className="flex-1" onClick={resetBooking}>
+              Book another
+            </Button>
+            <Button className="flex-1 bg-primary hover:bg-primary/90" asChild>
+              <a href="/dashboard/bookings">View bookings</a>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

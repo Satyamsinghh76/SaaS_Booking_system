@@ -34,6 +34,12 @@ const errorHandler = (err, req, res, next) => { // eslint-disable-line no-unused
     return res.status(409).json({ success: false, message: 'This time slot is already booked.', code: 'SLOT_CONFLICT', requestId });
   }
 
+  // ── SQLite unique constraint (double-booking backstop) ───
+  if (err.code === 'SQLITE_CONSTRAINT' && /UNIQUE constraint/i.test(err.message) && /bookings/i.test(err.message)) {
+    logger.warn('SQLite slot unique constraint hit', { requestId, message: err.message });
+    return res.status(409).json({ success: false, message: 'This time slot is already booked.', code: 'SLOT_CONFLICT', requestId });
+  }
+
   // ── Custom application errors ─────────────────────────────
   if (err.code === 'SLOT_CONFLICT') {
     logger.warn('Slot conflict', { requestId, message: err.message });

@@ -66,6 +66,16 @@ export const logout = async (): Promise<void> => {
  * GET /api/auth/me
  * Returns the current authenticated user's profile.
  */
+/**
+ * POST /api/auth/google
+ * Sends the Google ID token credential to the backend for verification.
+ */
+export const googleLogin = async (credential: string): Promise<User> => {
+  const { data } = await apiClient.post<AuthResponse>('/api/auth/google', { credential });
+  localStorage.setItem('access_token', data.data.access_token);
+  return data.data.user;
+};
+
 export const getMe = async (): Promise<User> => {
   const { data } = await apiClient.get<{ success: boolean; data: User }>('/api/auth/me');
   return data.data;

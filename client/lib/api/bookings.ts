@@ -32,6 +32,8 @@ export interface CreateBookingPayload {
   date: string;             // YYYY-MM-DD
   start_time: string;       // HH:MM
   notes?: string;
+  customer_name?: string;
+  customer_email?: string;
 }
 
 export interface BookingListParams {
@@ -97,4 +99,40 @@ export const cancelBooking = async (id: string): Promise<Booking> => {
     `/api/bookings/${id}`
   );
   return data.data;
+};
+
+/**
+ * GET /api/bookings/booked-slots?service_id=...&date=YYYY-MM-DD
+ * Returns start_time values already booked for a service on a given date.
+ */
+export const fetchBookedSlots = async (
+  serviceId: string,
+  date: string
+): Promise<string[]> => {
+  const { data } = await apiClient.get<{ success: boolean; data: string[] }>(
+    '/api/bookings/booked-slots',
+    { params: { service_id: serviceId, date } }
+  );
+  return data.data;
+};
+
+export interface Recommendation {
+  rank: number;
+  date: string;
+  start_time: string;
+  end_time: string;
+  score: number;
+  label: string;
+}
+
+export const fetchRecommendedSlots = async (
+  serviceId: string
+): Promise<Recommendation[]> => {
+  const { data } = await apiClient.get<{
+    success: boolean;
+    data: { recommendations: Recommendation[] };
+  }>('/api/bookings/recommended-slots', {
+    params: { service_id: serviceId, top_n: 5 },
+  });
+  return data.data.recommendations;
 };

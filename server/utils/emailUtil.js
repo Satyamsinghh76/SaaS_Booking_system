@@ -78,8 +78,10 @@ const getTransporter = async () => {
 
 // ── Sender address ────────────────────────────────────────────
 const buildFromAddress = () => {
-  const name    = process.env.EMAIL_FROM_NAME    || 'BookIt';
-  const address = process.env.EMAIL_FROM_ADDRESS || 'noreply@bookit.example.com';
+  // Support EMAIL_FROM="BookFlow <user@example.com>" format from .env
+  if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
+  const name    = process.env.EMAIL_FROM_NAME    || 'BookFlow';
+  const address = process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER || 'noreply@bookflow.com';
   return `"${name}" <${address}>`;
 };
 
