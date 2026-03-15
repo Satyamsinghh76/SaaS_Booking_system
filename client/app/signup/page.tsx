@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
-import { useBookingStore } from '@/lib/store'
+
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -41,7 +41,7 @@ const passwordRequirements = [
 
 export default function SignupPage() {
   const router = useRouter()
-  const { setCurrentUser } = useBookingStore()
+
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -65,9 +65,8 @@ export default function SignupPage() {
     setIsLoading(true)
     setApiError(null)
     try {
-      const user = await api.auth.signup({ name: data.name, email: data.email, password: data.password })
-      setCurrentUser(user)
-      router.push('/dashboard')
+      await api.auth.signup({ name: data.name, email: data.email, password: data.password })
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
     } catch (err: unknown) {
       const axiosErr = err instanceof AxiosError ? err : null
       const status = axiosErr?.response?.status

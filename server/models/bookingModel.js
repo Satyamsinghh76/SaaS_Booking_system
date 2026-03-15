@@ -20,7 +20,8 @@ const BOOKING_COLS = `
   s.name                        AS service_name,
   s.duration_minutes,
   u.name                        AS user_name,
-  u.email                       AS user_email
+  u.email                       AS user_email,
+  u.phone_number                AS user_phone
 `.trim();
 
 const BookingModel = {
@@ -180,23 +181,22 @@ const BookingModel = {
     try {
       await client.query('BEGIN');
 
-      const cancelFields = ['cancelled', 'no_show'].includes(newStatus)
-        ? `, cancelled_at = NOW(), cancellation_reason = $4`
-        : '';
+      let sql, values;
+      if (['cancelled', 'no_show'].includes(newStatus)) {
+        sql = `UPDATE bookings
+               SET status = $1, cancelled_at = NOW(), cancellation_reason = $3
+               WHERE id = $2
+               RETURNING id, status, updated_at`;
+        values = [newStatus, id, reason ?? null];
+      } else {
+        sql = `UPDATE bookings
+               SET status = $1
+               WHERE id = $2
+               RETURNING id, status, updated_at`;
+        values = [newStatus, id];
+      }
 
-      const values = newStatus === 'cancelled' || newStatus === 'no_show'
-        ? [newStatus, id, actorId ?? null, reason ?? null]
-        : [newStatus, id, actorId ?? null];
-
-      const { rows } = await client.query(
-        `UPDATE bookings
-         SET  status       = $1,
-              cancelled_by = $3
-              ${cancelFields}
-         WHERE id = $2
-         RETURNING id, status, updated_at`,
-        values
-      );
+      const { rows } = await client.query(sql, values);
 
       await client.query(
         `INSERT INTO booking_events

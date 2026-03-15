@@ -236,7 +236,7 @@ const resolveWeights = (hasPreferences) => {
 const getRecommendedSlots = async ({
   serviceId,
   userId          = null,
-  topN            = 3,
+  topN            = 5,
   lookAheadDays   = 14,
   leadTimeMinutes = 60,
 } = {}) => {

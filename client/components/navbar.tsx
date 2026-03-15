@@ -20,19 +20,23 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useBookingStore } from '@/lib/store'
 
-const navigation = [
-  { name: 'Home', href: '/' },
-  { name: 'Services', href: '/services' },
-  { name: 'Book Now', href: '/booking' },
-  { name: 'Dashboard', href: '/dashboard' },
-]
-
 export function Navbar() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const { isMobileMenuOpen, setMobileMenuOpen } = useBookingStore()
+  const { isMobileMenuOpen, setMobileMenuOpen, currentUser } = useBookingStore()
+
+  const homeHref = currentUser
+    ? currentUser.role === 'admin' ? '/admin' : '/dashboard'
+    : '/login'
+
+  const navigation = [
+    { name: 'Home', href: homeHref },
+    { name: 'Services', href: '/services' },
+    { name: 'Book Now', href: '/booking' },
+    { name: 'Dashboard', href: currentUser?.role === 'admin' ? '/admin' : '/dashboard' },
+  ]
 
   useEffect(() => {
     setMounted(true)
@@ -42,7 +46,7 @@ export function Navbar() {
   }, [])
 
   // Hide navbar on dashboard pages
-  const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin')
+  const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin') || pathname?.startsWith('/provider')
   if (isDashboard) return null
 
   return (

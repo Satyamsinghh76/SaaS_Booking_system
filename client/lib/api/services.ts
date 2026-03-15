@@ -7,7 +7,8 @@ export interface Service {
   name: string;
   description: string | null;
   duration_minutes: number;
-  price: number;          // in dollars (converted from cents by server)
+  price: number;
+  category: string;
   is_active: boolean;
   created_at: string;
 }

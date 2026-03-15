@@ -19,7 +19,8 @@ import {
   BarChart3,
   CreditCard,
   Menu,
-  Shield
+  Shield,
+  Briefcase
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
+  { name: 'Provider View', href: '/provider', icon: Briefcase },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
 

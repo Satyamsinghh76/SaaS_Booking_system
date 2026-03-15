@@ -2,13 +2,14 @@
 
 /**
  * SMS Reminder Scheduler — runs as a cron job.
- * Queries upcoming bookings and sends SMS reminders via Twilio.
+ * Queries upcoming confirmed bookings and sends SMS reminders via Twilio.
+ * Only sends once per booking (tracks via reminder_sent flag).
  */
 
 require('dotenv').config();
 const cron = require('node-cron');
-const { query }     = require('../config/database');
-const twilio        = require('twilio');
+const { query } = require('../config/database');
+const twilio = require('twilio');
 
 // ── Twilio Client ────────────────────────────────────────────
 
@@ -21,61 +22,76 @@ if (missing.length > 0) {
   console.warn(`[SMS] Missing Twilio env vars: ${missing.join(', ')}. SMS reminders disabled.`);
 } else {
   twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-  fromNumber   = TWILIO_PHONE_NUMBER;
+  fromNumber = TWILIO_PHONE_NUMBER;
 }
 
 // ── DB Queries ───────────────────────────────────────────────
 
 async function getBookingsDueForReminder() {
   const { rows } = await query(`
-    SELECT id, user_phone, service_name, start_time FROM bookings
-    WHERE status = 'confirmed' AND reminder_sent = false
-      AND start_time BETWEEN NOW() + INTERVAL '55 minutes' AND NOW() + INTERVAL '65 minutes'
-    ORDER BY start_time ASC
+    SELECT
+      b.id,
+      b.booking_date::TEXT AS booking_date,
+      b.start_time::TEXT   AS start_time,
+      s.name               AS service_name,
+      u.phone_number       AS user_phone,
+      u.name               AS user_name
+    FROM bookings b
+    JOIN services s ON s.id = b.service_id
+    JOIN users u ON u.id = b.user_id
+    WHERE b.status IN ('confirmed', 'pending')
+      AND b.reminder_sent = FALSE
+      AND u.phone_number IS NOT NULL
+      AND (b.booking_date + b.start_time)
+          BETWEEN (NOW() + INTERVAL '55 minutes')
+              AND (NOW() + INTERVAL '65 minutes')
+    ORDER BY b.booking_date, b.start_time ASC
   `);
   return rows;
 }
 
 async function markReminderSent(bookingId) {
-  await query(`UPDATE bookings SET reminder_sent = true WHERE id = $1`, [bookingId]);
+  await query('UPDATE bookings SET reminder_sent = TRUE WHERE id = $1', [bookingId]);
 }
 
-async function logSmsAttempt({ bookingId, status, twilioSid, error }) {
+async function logSmsAttempt({ bookingId, userId, phone, status, twilioSid, error }) {
   try {
     await query(
-      `INSERT INTO sms_logs (booking_id, status, twilio_sid, error) VALUES ($1, $2, $3, $4)`,
-      [bookingId, status, twilioSid || null, error || null]
+      `INSERT INTO sms_logs (booking_id, user_id, phone_number, message_type, status, twilio_sid, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [bookingId, userId || null, phone || null, 'reminder', status, twilioSid || null, error || null]
     );
   } catch (err) {
-    console.error('[DB] Failed to write SMS log:', err.message);
+    console.error('[SMS] Failed to write SMS log:', err.message);
   }
 }
 
 // ── SMS Sender ───────────────────────────────────────────────
 
-function formatReminderMessage(serviceName, appointmentTime) {
-  const date = new Date(appointmentTime);
-  const time = date.toLocaleTimeString('en-US', {
-    hour: '2-digit', minute: '2-digit', hour12: true,
-    timeZone: process.env.APP_TIMEZONE || 'UTC',
-  });
-  return `Reminder: Your appointment for ${serviceName} is at ${time}.`;
+function formatTime12h(time24) {
+  const [h, m] = time24.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`;
 }
 
 const TRANSIENT_CODES = new Set([20429, 20503, 30001, 30002, 30003]);
 const isTransientError = (err) => err.status >= 500 || TRANSIENT_CODES.has(err.code);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function sendSmsReminder({ to, serviceName, appointmentTime, bookingId, maxRetries = 3 }) {
+async function sendSmsReminder({ to, serviceName, startTime, bookingDate, bookingId, maxRetries = 3 }) {
   if (!twilioClient) return { success: false, error: 'Twilio not configured' };
 
-  const body = formatReminderMessage(serviceName, appointmentTime);
-  const tag  = bookingId ? `[booking:${bookingId}]` : '';
+  const date = new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric',
+  });
+  const body = `Reminder: Your ${serviceName} appointment is coming up on ${date} at ${formatTime12h(startTime)}. — BookFlow`;
+  const tag = `[booking:${bookingId}]`;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const message = await twilioClient.messages.create({ body, from: fromNumber, to });
-      console.log(`[SMS] ${tag} Sent to ${to} | SID: ${message.sid}`);
+      console.log(`[SMS] ${tag} Reminder sent to ${to} | SID: ${message.sid}`);
       return { success: true, sid: message.sid };
     } catch (err) {
       console.error(`[SMS] ${tag} Attempt ${attempt}/${maxRetries} failed:`, err.message);
@@ -105,17 +121,20 @@ async function processReminders() {
     return;
   }
   console.log(`[Scheduler] Found ${bookings.length} booking(s) to remind.`);
+
   await Promise.allSettled(bookings.map(async (booking) => {
-    const { id, user_phone, service_name, start_time } = booking;
     const result = await sendSmsReminder({
-      to: user_phone, serviceName: service_name,
-      appointmentTime: start_time, bookingId: id,
+      to: booking.user_phone,
+      serviceName: booking.service_name,
+      startTime: booking.start_time,
+      bookingDate: booking.booking_date,
+      bookingId: booking.id,
     });
     if (result.success) {
-      await markReminderSent(id);
-      await logSmsAttempt({ bookingId: id, status: 'sent', twilioSid: result.sid });
+      await markReminderSent(booking.id);
+      await logSmsAttempt({ bookingId: booking.id, phone: booking.user_phone, status: 'sent', twilioSid: result.sid });
     } else {
-      await logSmsAttempt({ bookingId: id, status: 'failed', error: result.error });
+      await logSmsAttempt({ bookingId: booking.id, phone: booking.user_phone, status: 'failed', error: result.error });
     }
   }));
 }
@@ -125,7 +144,6 @@ function startScheduler() {
     throw new Error(`[Scheduler] Invalid cron: "${CRON_SCHEDULE}"`);
   }
   console.log(`[Scheduler] Starting SMS reminders — cron: "${CRON_SCHEDULE}"`);
-  processReminders();
   cron.schedule(CRON_SCHEDULE, processReminders, {
     scheduled: true,
     timezone: process.env.APP_TIMEZONE || 'UTC',

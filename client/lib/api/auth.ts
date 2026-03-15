@@ -31,15 +31,19 @@ export interface LoginPayload {
 
 // ── API calls ──────────────────────────────────────────────────
 
+export interface SignupResponse {
+  success: boolean;
+  message: string;
+  data: { requiresVerification: boolean; email: string };
+}
+
 /**
  * POST /api/auth/signup
- * Registers a new user and returns tokens + user profile.
- * Stores the access token in localStorage for subsequent requests.
+ * Registers a new user. Does NOT log them in — they must verify email first.
  */
-export const signup = async (payload: SignupPayload): Promise<User> => {
-  const { data } = await apiClient.post<AuthResponse>('/api/auth/signup', payload);
-  localStorage.setItem('access_token', data.data.access_token);
-  return data.data.user;
+export const signup = async (payload: SignupPayload): Promise<SignupResponse> => {
+  const { data } = await apiClient.post<SignupResponse>('/api/auth/signup', payload);
+  return data;
 };
 
 /**

@@ -48,7 +48,7 @@ const getRecommendations = async (req, res, next) => {
     }
 
     // Parse and clamp optional params
-    const topN           = Math.min(10, Math.max(1, parseInt(top_n           || '3',  10)));
+    const topN           = Math.min(10, Math.max(1, parseInt(top_n           || '5',  10)));
     const lookAheadDays  = Math.min(60, Math.max(1, parseInt(look_ahead_days || '14', 10)));
     const leadTimeMin    = Math.min(1440, Math.max(0, parseInt(lead_time_minutes || '60', 10)));
 

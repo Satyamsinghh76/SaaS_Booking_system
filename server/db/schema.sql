@@ -33,19 +33,25 @@ $$ LANGUAGE plpgsql;
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS users (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  name          TEXT        NOT NULL,
-  email         TEXT        NOT NULL,
-  password_hash TEXT        NOT NULL,
+  id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                 TEXT        NOT NULL,
+  email                TEXT        NOT NULL,
+  password_hash        TEXT        NOT NULL,
 
   -- 'user' = customer, 'admin' = platform staff
-  role          TEXT        NOT NULL DEFAULT 'user'
-                            CHECK (role IN ('user', 'admin')),
+  role                 TEXT        NOT NULL DEFAULT 'user'
+                                   CHECK (role IN ('user', 'admin')),
 
-  is_active     BOOLEAN     NOT NULL DEFAULT TRUE,
+  phone_number         TEXT,
+  phone_verified       BOOLEAN     NOT NULL DEFAULT FALSE,
+  email_verified       BOOLEAN     NOT NULL DEFAULT FALSE,
+  verification_token   TEXT,
+  verification_expires TIMESTAMPTZ,
 
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  is_active            BOOLEAN     NOT NULL DEFAULT TRUE,
+
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   CONSTRAINT users_email_unique UNIQUE (email)
 );
@@ -78,6 +84,8 @@ CREATE TABLE IF NOT EXISTS services (
 
   -- Stored in minor currency units or as a decimal; USD example: 75.00
   price            NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+
+  category         TEXT         NOT NULL DEFAULT '',
 
   is_active        BOOLEAN      NOT NULL DEFAULT TRUE,
 
@@ -475,11 +483,60 @@ CREATE INDEX IF NOT EXISTS idx_calendar_sync_log_created_at ON calendar_sync_log
 -- Generated with: SELECT crypt('changeme123', gen_salt('bf', 12))
 -- =============================================================================
 
--- INSERT INTO users (name, email, password_hash, role)
--- VALUES (
---   'Admin',
---   'admin@example.com',
---   '$2b$12$placeholderHashReplaceThisBeforeFirstDeployment000000',
---   'admin'
--- )
--- ON CONFLICT (email) DO NOTHING;
+-- =============================================================================
+-- TABLE: sms_logs
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS sms_logs (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID        REFERENCES users(id) ON DELETE SET NULL,
+  booking_id      UUID        REFERENCES bookings(id) ON DELETE SET NULL,
+  phone_number    TEXT        NOT NULL,
+  message_type    TEXT        NOT NULL DEFAULT 'notification',
+  message_content TEXT,
+  status          TEXT        NOT NULL DEFAULT 'pending',
+  twilio_sid      TEXT,
+  error_message   TEXT,
+  sent_at         TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sms_logs_booking_id ON sms_logs (booking_id);
+CREATE INDEX IF NOT EXISTS idx_sms_logs_user_id ON sms_logs (user_id);
+
+-- =============================================================================
+-- TABLE: user_sms_preferences
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS user_sms_preferences (
+  id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID        NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  enable_confirmations  BOOLEAN     NOT NULL DEFAULT TRUE,
+  enable_reminders      BOOLEAN     NOT NULL DEFAULT TRUE,
+  enable_cancellations  BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- =============================================================================
+-- Seed data
+-- =============================================================================
+
+-- Pre-hashed 'Admin123!' (bcrypt, 12 rounds)
+INSERT INTO users (name, email, password_hash, role, email_verified)
+VALUES
+  ('Admin User', 'admin@bookflow.com', '$2a$12$dVNXmsx4TmppehBN9rB/H.7dfwws6YYN3ArNxLuYBDlBgF052Ic1i', 'admin', TRUE),
+  ('Test User',  'user@bookflow.com',  '$2a$12$dVNXmsx4TmppehBN9rB/H.7dfwws6YYN3ArNxLuYBDlBgF052Ic1i', 'user',  TRUE)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO services (name, description, duration_minutes, price, category)
+VALUES
+  ('Strategy Consultation', 'One-on-one strategic planning session to align your business goals.', 60,  150.00, 'Consulting'),
+  ('Design Review',         'Expert review of your designs with actionable feedback.',              45,  100.00, 'Design'),
+  ('Technical Deep Dive',   'In-depth technical analysis and architecture review.',                90,  200.00, 'Development'),
+  ('Brand Workshop',        'Collaborative workshop to define your brand identity.',              120,  300.00, 'Branding'),
+  ('Growth Strategy',       'Develop a comprehensive growth plan for your business.',              60,  175.00, 'Marketing'),
+  ('Quick Sync',            'Brief check-in for ongoing projects and updates.',                    30,   50.00, 'General')
+ON CONFLICT (name) DO NOTHING;

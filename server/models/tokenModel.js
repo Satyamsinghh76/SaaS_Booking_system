@@ -93,6 +93,14 @@ const TokenModel = {
     );
     return rows.length > 0;
   },
+
+  /** Get the user_id of the first admin with a valid Google OAuth token. */
+  async getAuthorizedAdminId() {
+    const { rows } = await query(
+      'SELECT user_id FROM google_oauth_tokens WHERE is_valid = TRUE ORDER BY last_used_at DESC LIMIT 1'
+    );
+    return rows[0]?.user_id || null;
+  },
 };
 
 module.exports = TokenModel;

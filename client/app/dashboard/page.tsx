@@ -44,7 +44,7 @@ function mapAPIBooking(b: APIBooking): Booking {
         ? 'completed'
         : 'cancelled',
     paymentStatus: b.payment_status,
-    price: b.price_snapshot,
+    price: parseFloat(b.price_snapshot as unknown as string) || 0,
   }
 }
 
@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const recentBookings = bookings.filter(b => b.status === 'completed').slice(0, 3)
 
   const totalSpent = bookings
-    .filter(b => b.status !== 'cancelled')
+    .filter(b => b.paymentStatus === 'paid')
     .reduce((sum, b) => sum + b.price, 0)
 
   const computedStats = [

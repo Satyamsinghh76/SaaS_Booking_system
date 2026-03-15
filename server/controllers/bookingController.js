@@ -22,6 +22,10 @@
 const { query }           = require('../config/database');
 const BookingModel        = require('../models/bookingModel');
 const NotificationService = require('../services/notificationService');
+const TwilioService       = require('../services/twilioService');
+const CalendarService     = require('../services/calendarService');
+const CalendarModel       = require('../models/calendarModel');
+const TokenModel          = require('../models/tokenModel');
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -33,6 +37,34 @@ const paginate = (total, page, limit) => ({
   has_next:    page * limit < total,
   has_prev:    page > 1,
 });
+
+/**
+ * Fire-and-forget calendar sync/delete for a booking.
+ * Silently skips if no admin has connected Google Calendar.
+ */
+const calendarSync = async (bookingId, action = 'sync') => {
+  try {
+    const adminId = await TokenModel.getAuthorizedAdminId();
+    if (!adminId) return; // No admin has connected Google Calendar
+
+    const booking = await CalendarModel.findBookingForCalendar(bookingId);
+    if (!booking) return;
+
+    if (action === 'sync') {
+      const result = await CalendarService.syncBooking(booking, adminId);
+      if (result.eventId) {
+        await CalendarModel.saveGoogleEventId(bookingId, result.eventId, adminId);
+      }
+      console.log(`📅 [calendar] ${result.action} event for booking ${bookingId}`);
+    } else if (action === 'delete' && booking.google_event_id) {
+      await CalendarService.deleteEvent(booking.google_event_id, adminId);
+      await CalendarModel.clearGoogleEventId(bookingId);
+      console.log(`📅 [calendar] Deleted event for booking ${bookingId}`);
+    }
+  } catch (err) {
+    console.error(`[calendar] Failed to ${action} booking ${bookingId}:`, err.message);
+  }
+};
 
 const resolveServiceAndEndTime = async (serviceId, startTime) => {
   const { rows } = await query(
@@ -59,7 +91,7 @@ const resolveServiceAndEndTime = async (serviceId, startTime) => {
 
 const createBooking = async (req, res, next) => {
   try {
-    const { service_id, date, start_time, notes, customer_name, customer_email } = req.body;
+    const { service_id, date, start_time, notes, customer_name, customer_email, customer_phone } = req.body;
     const userId = req.user.id;
 
     const { service, endTime } = await resolveServiceAndEndTime(service_id, start_time);
@@ -81,14 +113,29 @@ const createBooking = async (req, res, next) => {
       data:    { ...booking, service_name: service.name, duration_minutes: service.duration_minutes },
     });
 
-    // Send confirmation email asynchronously — never blocks the response
+    // Save phone number to user profile if provided
+    if (customer_phone) {
+      query('UPDATE users SET phone_number = $1 WHERE id = $2', [customer_phone, userId])
+        .catch((err) => console.error('[booking] Failed to save phone:', err.message));
+    }
+
+    // Send confirmation email + SMS asynchronously — never blocks the response
     BookingModel.findById(booking.id)
       .then((fullBooking) => {
         if (!fullBooking) return;
-        // Use the email/name from the booking form if provided
+        // Use the email/name/phone from the booking form if provided
         if (customer_email) fullBooking.user_email = customer_email;
         if (customer_name)  fullBooking.user_name  = customer_name;
+        const phone = customer_phone || fullBooking.user_phone;
         NotificationService.sendBookingConfirmed(fullBooking);
+
+        // Send SMS confirmation if phone number is available
+        if (phone) {
+          TwilioService.sendBookingConfirmation(fullBooking, {
+            id: fullBooking.user_id,
+            phone_number: phone,
+          }).catch((err) => console.error('[booking] SMS confirmation failed:', err.message));
+        }
       })
       .catch((err) => console.error('[booking] Failed to send confirmation email:', err.message));
   } catch (err) {
@@ -173,12 +220,14 @@ const updateStatus = async (req, res, next) => {
 
     if (status === 'confirmed') {
       NotificationService.sendBookingConfirmed(updatedBooking);
+      calendarSync(req.params.id, 'sync');
     }
     if (status === 'cancelled') {
       NotificationService.sendBookingCancelled(updatedBooking, {
         cancelledBy: req.user.role === 'admin' ? 'admin' : 'user',
         reason,
       });
+      calendarSync(req.params.id, 'delete');
     }
   } catch (err) {
     if (err.code === 'INVALID_TRANSITION') {
@@ -221,6 +270,7 @@ const updatePaymentStatus = async (req, res, next) => {
 
     if (autoConfirmed) {
       NotificationService.sendBookingConfirmed(finalBooking);
+      calendarSync(req.params.id, 'sync');
     }
   } catch (err) {
     next(err);

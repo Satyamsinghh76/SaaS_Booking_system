@@ -54,7 +54,10 @@ export default function LoginPage() {
       const axiosErr = err instanceof AxiosError ? err : null
       const status = axiosErr?.response?.status
       const serverMessage = axiosErr?.response?.data?.message as string | undefined
-      if (status === 401 || status === 400) {
+      const errorCode = axiosErr?.response?.data?.code
+      if (status === 403 && errorCode === 'EMAIL_NOT_VERIFIED') {
+        setApiError('Please verify your email before logging in. Check your inbox for the verification link.')
+      } else if (status === 401 || status === 400) {
         setApiError('Invalid email or password. Please try again.')
       } else if (serverMessage) {
         setApiError(serverMessage)

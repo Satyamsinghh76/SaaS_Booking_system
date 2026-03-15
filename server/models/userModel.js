@@ -1,5 +1,6 @@
 const { query } = require('../config/database');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
 
@@ -35,7 +36,7 @@ const UserModel = {
    */
   async findByEmailWithPassword(email) {
     const { rows } = await query(
-      `SELECT id, name, email, password_hash, role, is_active FROM users WHERE email = $1`,
+      `SELECT id, name, email, password_hash, role, is_active, email_verified FROM users WHERE email = $1`,
       [email]
     );
     return rows[0] || null;
@@ -113,8 +114,10 @@ const UserModel = {
     const existing = await this.findByEmail(email);
     if (existing) return { user: existing, isNew: false };
 
-    const randomPassword = require('crypto').randomBytes(32).toString('hex');
+    const randomPassword = crypto.randomBytes(32).toString('hex');
     const user = await this.create({ name, email, password: randomPassword });
+    // Google already verified the email
+    await query('UPDATE users SET email_verified = TRUE WHERE id = $1', [user.id]);
     return { user, isNew: true };
   },
 
@@ -131,13 +134,13 @@ const UserModel = {
     const { rows } = await query(
       `SELECT id, name, email, role FROM users
        WHERE verification_token = $1
-         AND verification_expires > DATETIME('now')`,
+         AND verification_expires > NOW()`,
       [token]
     );
     if (!rows[0]) return null;
 
     await query(
-      `UPDATE users SET email_verified = 1, verification_token = NULL, verification_expires = NULL
+      `UPDATE users SET email_verified = TRUE, verification_token = NULL, verification_expires = NULL
        WHERE id = $1`,
       [rows[0].id]
     );

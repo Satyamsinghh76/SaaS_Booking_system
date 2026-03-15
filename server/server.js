@@ -163,13 +163,13 @@ app.get('/ready', async (_req, res) => {
 // ── API routes ───────────────────────────────────────────────
 app.use('/api/auth',          authRoutes);
 app.use('/api/users',         userRoutes);
+app.use('/api/bookings',      recommendationRoutes);  // before bookingRoutes (optionalAuth, not authenticate)
 app.use('/api/bookings',      bookingRoutes);
 app.use('/api/services',      serviceRoutes);
 app.use('/api/availability',  availabilityRoutes);
 app.use('/api/payments',      paymentRoutes);
 app.use('/api/calendar',      calendarRoutes);
 app.use('/api/admin',         adminRoutes);
-app.use('/api/bookings',      recommendationRoutes);
 app.use('/api/sms',           smsRoutes);
 
 // ── 404 fallback ─────────────────────────────────────────────
@@ -191,12 +191,12 @@ const start = async () => {
     process.exit(1);
   }
 
-  // Disable SMS scheduler for now (test credentials)
-  // if (env.twilio.enabled) {
-  //   const { startScheduler } = require('./jobs/smsReminder');
-  //   startScheduler();
-  //   logger.info('SMS reminder scheduler started.');
-  // }
+  // Start SMS reminder scheduler
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    const { startScheduler } = require('./jobs/smsReminder');
+    startScheduler();
+    logger.info('SMS reminder scheduler started.');
+  }
 
   const port = env.port;
   const server = app.listen(port, () => {

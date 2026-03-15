@@ -12,7 +12,9 @@ import {
   ArrowLeft,
   Check,
   Loader2,
-  Sparkles
+  Sparkles,
+  Phone,
+  CalendarPlus
 } from 'lucide-react'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
@@ -40,6 +42,30 @@ function formatTime12h(time24: string) {
   return `${hour12}:${m.toString().padStart(2, '0')} ${suffix}`
 }
 
+function buildGoogleCalendarUrl(params: {
+  title: string
+  date: string       // YYYY-MM-DD
+  startTime: string  // HH:MM
+  durationMin: number
+  description?: string
+}) {
+  const { title, date, startTime, durationMin, description } = params
+  const dateClean = date.replace(/-/g, '')
+  const [h, m] = startTime.split(':').map(Number)
+  const startStr = `${dateClean}T${String(h).padStart(2, '0')}${String(m).padStart(2, '0')}00`
+  const endMin = h * 60 + m + durationMin
+  const endH = Math.floor(endMin / 60)
+  const endM = endMin % 60
+  const endStr = `${dateClean}T${String(endH).padStart(2, '0')}${String(endM).padStart(2, '0')}00`
+
+  const url = new URL('https://calendar.google.com/calendar/render')
+  url.searchParams.set('action', 'TEMPLATE')
+  url.searchParams.set('text', title)
+  url.searchParams.set('dates', `${startStr}/${endStr}`)
+  if (description) url.searchParams.set('details', description)
+  return url.toString()
+}
+
 function BookingContent() {
   const searchParams = useSearchParams()
   const serviceIdParam = searchParams.get('service')
@@ -59,7 +85,7 @@ function BookingContent() {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [isConfirming, setIsConfirming] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
-  const [customerInfo, setCustomerInfo] = useState({ name: '', email: '' })
+  const [customerInfo, setCustomerInfo] = useState({ name: '', email: '', phone: '' })
 
   // Initialize selected service from URL param
   useEffect(() => {
@@ -86,7 +112,7 @@ function BookingContent() {
             description: s.description ?? '',
             duration: s.duration_minutes,
             price: s.price,
-            category: '',
+            category: s.category || '',
           }))
         )
       )
@@ -161,22 +187,22 @@ function BookingContent() {
     setLoadingRecs(true)
     fetchRecommendedSlots(selectedService.id)
       .then((recs) => {
-        // Filter to only show recommendations for the selected date
         const dateStr = format(selectedDate, 'yyyy-MM-dd')
-        const filtered = recs.filter(r => r.date === dateStr)
-        setRecommendations(filtered)
+        // Prioritize slots for the selected date, fill remaining with other dates
+        const forDate = recs.filter(r => r.date === dateStr)
+        const otherDates = recs.filter(r => r.date !== dateStr)
+        const combined = [...forDate, ...otherDates].slice(0, 5)
+        setRecommendations(combined)
       })
       .catch(() => setRecommendations([]))
       .finally(() => setLoadingRecs(false))
   }, [selectedService, selectedDate])
 
   const handleSelectRecommendation = (rec: Recommendation) => {
-    const matchingSlot = timeSlots.find(s => s.time === rec.start_time)
-    if (matchingSlot) {
-      setSelectedSlot(matchingSlot)
-    } else {
-      setSelectedSlot({ id: `rec-${rec.rank}`, time: rec.start_time, available: true })
-    }
+    // Set the date from the recommendation (may differ from currently selected date)
+    const recDate = new Date(rec.date + 'T00:00:00')
+    setSelectedDate(recDate)
+    setSelectedSlot({ id: `rec-${rec.rank}`, time: rec.start_time, available: true })
     setStep(3)
   }
 
@@ -192,6 +218,7 @@ function BookingContent() {
         start_time: selectedSlot.time,
         customer_name: customerInfo.name,
         customer_email: customerInfo.email,
+        customer_phone: customerInfo.phone || undefined,
       })
 
       addBooking({
@@ -220,7 +247,7 @@ function BookingContent() {
     setSelectedSlot(null)
     setStep(1)
     setShowConfirmation(false)
-    setCustomerInfo({ name: '', email: '' })
+    setCustomerInfo({ name: '', email: '', phone: '' })
   }
 
   return (
@@ -470,10 +497,10 @@ function BookingContent() {
                                 </span>
                               </div>
                               <p className="font-semibold text-foreground">
-                                {formatTime12h(rec.start_time)}
+                                {formatTime12h(rec.start_time)} – {formatTime12h(rec.end_time)}
                               </p>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                {formatTime12h(rec.start_time)} – {formatTime12h(rec.end_time)}
+                                {format(new Date(rec.date + 'T00:00:00'), 'EEE, MMM d')}
                               </p>
                               {rec.label && (
                                 <p className="text-xs text-primary/70 mt-2 leading-tight">{rec.label}</p>
@@ -616,6 +643,23 @@ function BookingContent() {
                           className="h-11"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="phone"
+                            type="tel"
+                            placeholder="+91 9876543210"
+                            value={customerInfo.phone}
+                            onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
+                            className="h-11 pl-10"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Include country code for SMS notifications (e.g. +91, +1)
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -686,6 +730,24 @@ function BookingContent() {
               <span className="font-medium">{selectedSlot ? formatTime12h(selectedSlot.time) : ''}</span>
             </div>
           </div>
+          {selectedService && selectedDate && selectedSlot && (
+            <Button variant="outline" className="w-full" asChild>
+              <a
+                href={buildGoogleCalendarUrl({
+                  title: `${selectedService.name} — BookFlow`,
+                  date: format(selectedDate, 'yyyy-MM-dd'),
+                  startTime: selectedSlot.time,
+                  durationMin: selectedService.duration,
+                  description: `Booking with BookFlow\nService: ${selectedService.name}\nDuration: ${selectedService.duration} min\nPrice: $${selectedService.price}`,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <CalendarPlus className="mr-2 h-4 w-4" />
+                Add to Google Calendar
+              </a>
+            </Button>
+          )}
           <div className="flex gap-4">
             <Button variant="outline" className="flex-1" onClick={resetBooking}>
               Book another

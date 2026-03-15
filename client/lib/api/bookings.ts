@@ -34,6 +34,7 @@ export interface CreateBookingPayload {
   notes?: string;
   customer_name?: string;
   customer_email?: string;
+  customer_phone?: string;
 }
 
 export interface BookingListParams {

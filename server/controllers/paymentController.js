@@ -319,8 +319,7 @@ const simulatePayment = async (req, res, next) => {
     // ── 3. Simulate payment processing delay ──────────────────
     logger.info(`Starting simulated payment for booking ${bookingId}`, {
       userId,
-      amount: booking.amount,
-      currency: booking.currency || 'usd',
+      amount: booking.price_snapshot,
     });
 
     // Simulate 2-second payment processing
@@ -350,8 +349,8 @@ const simulatePayment = async (req, res, next) => {
         status: updatedBooking.status,
         payment_status: updatedBooking.payment_status,
         paid_at: updatedBooking.updated_at,
-        amount: updatedBooking.amount,
-        currency: updatedBooking.currency || 'usd',
+        amount: updatedBooking.price_snapshot,
+        currency: 'usd',
         demo_mode: true,
       },
     });

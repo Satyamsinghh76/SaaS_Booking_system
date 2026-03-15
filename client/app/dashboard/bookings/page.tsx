@@ -14,7 +14,8 @@ import {
   X,
   CalendarDays,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  CalendarPlus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,7 +68,7 @@ function mapAPIBooking(b: APIBooking): Booking {
         ? 'completed'
         : 'cancelled',
     paymentStatus: b.payment_status,
-    price: b.price_snapshot,
+    price: parseFloat(b.price_snapshot as unknown as string) || 0,
   }
 }
 
@@ -336,6 +337,23 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>View Details</DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={(() => {
+                        const dateClean = booking.date.replace(/-/g, '')
+                        const [h, m] = booking.time.split(':').map(Number)
+                        const start = `${dateClean}T${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}00`
+                        const endH = h + 1, endM = m
+                        const end = `${dateClean}T${String(endH).padStart(2,'0')}${String(endM).padStart(2,'0')}00`
+                        return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(booking.serviceName + ' — BookFlow')}&dates=${start}/${end}&details=${encodeURIComponent('Booking via BookFlow\nService: ' + booking.serviceName + '\nPrice: $' + booking.price)}`
+                      })()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <CalendarPlus className="h-4 w-4 mr-2" />
+                      Add to Google Calendar
+                    </a>
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="text-destructive" onClick={onCancel}>
                     Cancel Booking
                   </DropdownMenuItem>

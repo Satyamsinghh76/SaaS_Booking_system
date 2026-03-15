@@ -15,7 +15,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // ── Schema version — bump this when adding new tables/columns ──
-const SCHEMA_VERSION  = '8';
+const SCHEMA_VERSION  = '10';
 const versionFilePath = path.join(dataDir, 'schema_version.txt');
 const existingVersion = fs.existsSync(versionFilePath)
   ? fs.readFileSync(versionFilePath, 'utf8').trim()
@@ -170,6 +170,7 @@ db.serialize(() => {
     description      TEXT,
     duration_minutes INTEGER NOT NULL,
     price            REAL NOT NULL,
+    category         TEXT DEFAULT '',
     is_active        BOOLEAN DEFAULT 1,
     created_by       TEXT,
     updated_by       TEXT,
@@ -203,6 +204,7 @@ db.serialize(() => {
     refund_reason            TEXT,
     amount                   REAL,
     currency                 TEXT DEFAULT 'usd',
+    reminder_sent            BOOLEAN DEFAULT 0,
     created_at               DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at               DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id)    REFERENCES users(id),
@@ -312,6 +314,7 @@ db.serialize(() => {
     status      TEXT DEFAULT 'success',
     google_event_id TEXT,
     error_message   TEXT,
+    metadata    TEXT,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (booking_id) REFERENCES bookings(id),
     FOREIGN KEY (admin_id)   REFERENCES users(id)
@@ -354,10 +357,13 @@ db.serialize(() => {
     ('00000000-0000-4000-a000-000000000001', 'Admin User', 'admin@bookflow.com', '${DEFAULT_HASH}', 'admin', 1),
     ('00000000-0000-4000-a000-000000000002', 'Test User',  'user@bookflow.com',  '${DEFAULT_HASH}', 'user', 1)`);
 
-  db.run(`INSERT OR IGNORE INTO services (id, name, description, duration_minutes, price) VALUES
-    ('00000000-0000-4000-a000-000000000010', 'Consultation', 'Business consultation service', 60,  100.00),
-    ('00000000-0000-4000-a000-000000000011', 'Meeting',      'Team meeting',                   30,   50.00),
-    ('00000000-0000-4000-a000-000000000012', 'Workshop',     'Training workshop',              120, 200.00)`);
+  db.run(`INSERT OR IGNORE INTO services (id, name, description, duration_minutes, price, category) VALUES
+    ('00000000-0000-4000-a000-000000000010', 'Strategy Consultation', 'One-on-one strategic planning session to align your business goals.', 60,  150.00, 'Consulting'),
+    ('00000000-0000-4000-a000-000000000011', 'Design Review',         'Expert review of your designs with actionable feedback.',              45,  100.00, 'Design'),
+    ('00000000-0000-4000-a000-000000000012', 'Technical Deep Dive',   'In-depth technical analysis and architecture review.',                90,  200.00, 'Development'),
+    ('00000000-0000-4000-a000-000000000013', 'Brand Workshop',        'Collaborative workshop to define your brand identity.',              120,  300.00, 'Branding'),
+    ('00000000-0000-4000-a000-000000000014', 'Growth Strategy',       'Develop a comprehensive growth plan for your business.',              60,  175.00, 'Marketing'),
+    ('00000000-0000-4000-a000-000000000015', 'Quick Sync',            'Brief check-in for ongoing projects and updates.',                    30,   50.00, 'General')`);
 
   console.log('✅ SQLite database initialized successfully!');
   console.log(`📍 Database location: ${dbPath}`);

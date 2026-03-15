@@ -15,19 +15,14 @@ if (process.env.DB_TYPE === 'sqlite') {
   // ── Pool configuration ───────────────────────────────────────
   // DATABASE_URL (Supabase / Render / Heroku) takes priority over individual
   // DB_* vars, which are used for local development.
+  const isLocalhost = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('127.0.0.1');
   const poolConfig = process.env.DATABASE_URL
     ? {
         connectionString: process.env.DATABASE_URL,
-        // Supabase requires SSL with proper certificate verification
-        ssl: {
-          rejectUnauthorized: false, // Required for Supabase's SSL certificates
-          // For production, you might want to use: rejectUnauthorized: true
-          // with proper CA certificates, but Supabase works with false
-        },
-        // Additional Supabase-specific settings
+        // Only enable SSL for remote/cloud databases, not localhost
+        ssl: isLocalhost ? false : { rejectUnauthorized: false },
         application_name: 'saas-booking-platform',
-        // Connection timeout for Supabase (longer for cloud connections)
-        connectionTimeoutMillis: 10_000,
+        connectionTimeoutMillis: isLocalhost ? 5_000 : 10_000,
       }
     : {
         host:     process.env.DB_HOST     || 'localhost',
@@ -50,23 +45,12 @@ if (process.env.DB_TYPE === 'sqlite') {
 
   const pool = new Pool({
     ...poolConfig,
-
-    // Pool sizing — Optimized for Supabase connection limits
-    min:                          1,  // Fewer idle connections for cloud DB
-    max:                         10,  // Respect Supabase connection limits
-    idleTimeoutMillis:       30_000,  // Drop idle connections after 30s
-  connectionTimeoutMillis:  poolConfig.connectionTimeoutMillis || 5_000,
-
-  // TCP keepalives prevent cloud providers from dropping idle connections
-  keepAlive:                    true,
-  keepAliveInitialDelayMillis: 10_000,
-  
-  // Supabase-specific optimizations
-  statement_timeout:          30_000,  // Prevent long-running queries
-  query_timeout:              30_000,  // Consistent timeout for all queries
-  
-  // Enable prepared statements for better performance
-  preparedStatements:         true,
+    min:                         1,
+    max:                        10,
+    idleTimeoutMillis:      30_000,
+    connectionTimeoutMillis: poolConfig.connectionTimeoutMillis || 5_000,
+    keepAlive:                true,
+    keepAliveInitialDelayMillis: 10_000,
 });
 
 // ── Pool lifecycle events ────────────────────────────────────
@@ -97,7 +81,8 @@ pool.on('error', (err) => {
   logger.error('Database pool error', errorContext);
 });
 
-// Add getClient so models can do const { query, getClient } = require('../config/database')
+// Bind methods so destructuring works: const { query, getClient } = require('../config/database')
+pool.query = pool.query.bind(pool);
 pool.getClient = () => pool.connect();
 
 module.exports = pool;

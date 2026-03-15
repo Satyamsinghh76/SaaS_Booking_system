@@ -186,7 +186,7 @@ const PaymentModel = {
              payment_status = $2,
              updated_at = $3
        WHERE id = $4
-       RETURNING id, status, payment_status, updated_at, amount, currency`,
+       RETURNING id, status, payment_status, updated_at, price_snapshot`,
       [status, paymentStatus, paidAt, bookingId]
     );
 

@@ -234,12 +234,12 @@ export const useAuthStore = create<LegacyAuthState>((set) => ({
   register: async (payload) => {
     set({ isLoading: true })
     try {
-      const user = await api.auth.signup({
+      await api.auth.signup({
         name: `${payload.first_name} ${payload.last_name}`.trim(),
         email: payload.email,
         password: payload.password,
       })
-      set({ user: toLegacyUser(user), isAuthenticated: true })
+      // User must verify email before logging in — do not set authenticated
     } finally {
       set({ isLoading: false })
     }

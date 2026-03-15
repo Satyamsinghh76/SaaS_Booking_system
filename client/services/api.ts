@@ -26,9 +26,9 @@ export const login = async (payload: LoginPayload): Promise<ApiEnvelope<User>> =
   return { success: true, data: user };
 };
 
-export const signup = async (payload: SignupPayload): Promise<ApiEnvelope<User>> => {
-  const user = await api.auth.signup(payload);
-  return { success: true, data: user };
+export const signup = async (payload: SignupPayload): Promise<ApiEnvelope<{ requiresVerification: boolean; email: string }>> => {
+  const response = await api.auth.signup(payload);
+  return { success: true, data: response.data };
 };
 
 export const getServices = async (): Promise<ApiEnvelope<Service[]>> => {

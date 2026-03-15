@@ -59,22 +59,11 @@ const signup = async (req, res, next) => {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
     await UserModel.setVerificationToken(user.id, verificationToken, expiresAt);
 
-    // Issue tokens (user can log in immediately, but email is unverified)
-    const accessToken  = signAccessToken(user);
-    const refreshToken = signRefreshToken(user);
-    await saveRefreshToken(user.id, refreshToken);
-
-    // Refresh token → HttpOnly cookie; access token → JSON body
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
-
+    // Do NOT issue tokens — user must verify email first
     res.status(201).json({
       success: true,
       message: 'Account created. Please check your email to verify your account.',
-      data: {
-        user,
-        access_token: accessToken,
-        expires_in: process.env.JWT_EXPIRES_IN || '15m',
-      },
+      data: { requiresVerification: true, email: user.email },
     });
 
     // Send verification email (fire-and-forget — never blocks the response)
@@ -121,8 +110,16 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: INVALID_MSG });
     }
 
-    // Strip password_hash from response
-    const { password_hash, ...safeUser } = user;
+    if (!user.email_verified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email before logging in. Check your inbox for the verification link.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+
+    // Strip password_hash and email_verified from response
+    const { password_hash, email_verified, ...safeUser } = user;
 
     const accessToken  = signAccessToken(safeUser);
     const refreshToken = signRefreshToken(safeUser);
