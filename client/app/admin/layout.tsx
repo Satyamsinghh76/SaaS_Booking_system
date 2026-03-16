@@ -1,17 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Navbar } from '@/components/navbar'
 import { useBookingStore } from '@/lib/store'
 import { getMe } from '@/lib/api/auth'
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const { currentUser, setCurrentUser } = useBookingStore()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -54,5 +50,17 @@ export default function AdminLayout({
         </div>
       </motion.main>
     </div>
+  )
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <Suspense>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </Suspense>
   )
 }
