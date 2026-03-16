@@ -17,6 +17,8 @@ client/out/
 logs/
 *.log
 *.log.gz
+server/logs/*
+!server/logs/.gitkeep
 
 # ── Database files (SQLite legacy) ─────────────────
 *.db

@@ -184,9 +184,10 @@ const PaymentModel = {
       `UPDATE bookings
          SET status = $1,
              payment_status = $2,
+             paid_at = $3,
              updated_at = $3
        WHERE id = $4
-       RETURNING id, status, payment_status, updated_at, price_snapshot`,
+       RETURNING id, status, payment_status, paid_at, updated_at, price_snapshot`,
       [status, paymentStatus, paidAt, bookingId]
     );
 

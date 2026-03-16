@@ -24,7 +24,7 @@ export interface Booking {
   serviceName: string
   date: string
   time: string
-  status: 'upcoming' | 'completed' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   paymentStatus?: 'unpaid' | 'paid' | 'refunded' | 'failed'
   customerName?: string
   customerEmail?: string
@@ -123,7 +123,7 @@ const sampleBookings: Booking[] = [
     serviceName: 'Strategy Consultation',
     date: '2026-03-15',
     time: '10:00 AM',
-    status: 'upcoming',
+    status: 'pending',
     price: 150,
   },
   {
@@ -132,7 +132,7 @@ const sampleBookings: Booking[] = [
     serviceName: 'Design Review',
     date: '2026-03-18',
     time: '2:00 PM',
-    status: 'upcoming',
+    status: 'confirmed',
     price: 100,
   },
   {

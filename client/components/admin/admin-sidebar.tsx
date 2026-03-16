@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/lib/hooks/useTheme'
 import { 
   Calendar, 
   LayoutDashboard, 
@@ -39,7 +39,7 @@ const navigation = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, toggleTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -143,12 +143,12 @@ export function AdminSidebar() {
 
         {/* Theme toggle */}
         <motion.button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          onClick={toggleTheme}
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
         >
-          {theme === 'dark' ? (
+          {resolvedTheme === 'dark' ? (
             <Sun className="h-5 w-5 shrink-0" />
           ) : (
             <Moon className="h-5 w-5 shrink-0" />
@@ -161,7 +161,7 @@ export function AdminSidebar() {
                 exit={{ opacity: 0, width: 0 }}
                 className="font-medium whitespace-nowrap overflow-hidden"
               >
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
               </motion.span>
             )}
           </AnimatePresence>

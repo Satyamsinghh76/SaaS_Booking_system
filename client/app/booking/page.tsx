@@ -228,15 +228,25 @@ function BookingContent() {
         serviceName: booking.service_name,
         date: booking.date,
         time: booking.start_time,
-        status: 'upcoming',
+        status: 'pending',
         customerName: customerInfo.name,
         customerEmail: customerInfo.email,
         price: booking.price_snapshot,
       })
 
       setShowConfirmation(true)
-    } catch {
-      setBookingError('Failed to create booking. Please try again.')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number; data?: { code?: string; message?: string } } }
+      const status = axiosErr?.response?.status
+      const code = axiosErr?.response?.data?.code
+
+      if (status === 409 || code === 'SLOT_CONFLICT') {
+        setBookingError('This time slot is already booked. Please select a different time or date.')
+      } else if (status === 401) {
+        setBookingError('Please log in to book an appointment.')
+      } else {
+        setBookingError(axiosErr?.response?.data?.message || 'Failed to create booking. Please try again.')
+      }
     } finally {
       setIsConfirming(false)
     }

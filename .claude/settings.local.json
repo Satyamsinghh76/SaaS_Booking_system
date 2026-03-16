@@ -17,7 +17,8 @@
       "Bash(tasklist //FI \"PID eq 14808\")",
       "Bash(taskkill //F //PID 14808)",
       "Bash(curl -s http://localhost:5000/health)",
-      "Bash(powershell -Command \"Stop-Process -Id 14808 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 14808 -Force\")",
+      "Bash(node -e \":*)"
     ]
   }
 }

@@ -23,6 +23,8 @@ import {
   Star,
   ThumbsUp,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -61,9 +63,10 @@ import { StaggerWrapper, StaggerItem } from '@/components/ui/motion'
 import { cn } from '@/lib/utils'
 
 function buildStats(bookings: AdminBooking[]) {
-  const real = realOnly(bookings)
+  const real = bookings
   const active = real.filter(b => b.status !== 'cancelled')
-  const totalRevenue = active.reduce((s, b) => s + b.amount, 0)
+  const paid = active.filter(b => b.paymentStatus === 'paid')
+  const totalRevenue = paid.reduce((s, b) => s + b.amount, 0)
   const totalBookings = real.length
   const cancelledCount = real.filter(b => b.status === 'cancelled').length
   const uniqueUsers = new Set(active.map(b => b.email)).size
@@ -127,29 +130,25 @@ interface AdminBooking {
   amount: number
   status: string
   paymentStatus?: string
+  paidAt?: string
+  createdAt?: string
   notes?: string
   phone?: string
-  isDemo?: boolean
 }
 
-const demoBookings: AdminBooking[] = [
-  { id: 'demo-1', customer: 'Sarah Chen', email: 'sarah@example.com', service: 'Strategy Consultation', date: '2026-03-15', time: '10:00 AM', amount: 150, status: 'confirmed', isDemo: true },
-  { id: 'demo-2', customer: 'Marcus Johnson', email: 'marcus@example.com', service: 'Design Review', date: '2026-03-15', time: '11:30 AM', amount: 100, status: 'pending', isDemo: true },
-  { id: 'demo-3', customer: 'Emily Rodriguez', email: 'emily@example.com', service: 'Technical Deep Dive', date: '2026-03-15', time: '2:00 PM', amount: 200, status: 'confirmed', isDemo: true },
-  { id: 'demo-4', customer: 'David Kim', email: 'david@example.com', service: 'Brand Workshop', date: '2026-03-16', time: '9:00 AM', amount: 300, status: 'confirmed', isDemo: true },
-  { id: 'demo-5', customer: 'Lisa Wang', email: 'lisa@example.com', service: 'Growth Strategy', date: '2026-03-16', time: '3:00 PM', amount: 175, status: 'cancelled', isDemo: true },
-]
 
 function buildTopServices(bookings: AdminBooking[]) {
-  const active = realOnly(bookings).filter(b => b.status !== 'cancelled')
+  const active = bookings.filter(b => b.status !== 'cancelled')
+  const paid = active.filter(b => b.paymentStatus === 'paid')
+  const totalPaidRevenue = paid.reduce((s, b) => s + b.amount, 0)
   const byService: Record<string, { bookings: number; revenue: number }> = {}
   active.forEach(b => {
     if (!byService[b.service]) byService[b.service] = { bookings: 0, revenue: 0 }
     byService[b.service].bookings++
-    byService[b.service].revenue += b.amount
+    if (b.paymentStatus === 'paid') byService[b.service].revenue += b.amount
   })
   return Object.entries(byService)
-    .map(([name, data]) => ({ name, ...data, growth: Math.round((data.revenue / (active.reduce((s, b) => s + b.amount, 0) || 1)) * 100) }))
+    .map(([name, data]) => ({ name, ...data, growth: Math.round((data.revenue / (totalPaidRevenue || 1)) * 100) }))
     .sort((a, b) => b.bookings - a.bookings)
     .slice(0, 4)
 }
@@ -179,26 +178,46 @@ function formatTime12h(t: string) {
 
 type ChartPeriod = 'Week' | 'Month' | 'Year'
 
-// All analytics helpers filter out demo bookings — only real data
-function realOnly(bookings: AdminBooking[]) {
-  return bookings.filter(b => !b.isDemo)
+
+function getWeekRange(weekOffset: number) {
+  const now = new Date()
+  // Monday of the current week
+  const dayOfWeek = now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7)
+  monday.setHours(0, 0, 0, 0)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  return { monday, sunday }
 }
 
-function buildChartData(bookings: AdminBooking[], period: ChartPeriod) {
-  const real = realOnly(bookings)
+// Revenue date = when payment was collected (paid_at), fallback to created_at
+function getRevenueDate(b: AdminBooking): string {
+  if (b.paidAt) return b.paidAt.slice(0, 10)
+  if (b.createdAt) return b.createdAt.slice(0, 10)
+  return b.date
+}
+
+function buildChartData(bookings: AdminBooking[], period: ChartPeriod, weekOffset = 0) {
+  const real = bookings
   const now = new Date()
 
   if (period === 'Week') {
+    const { monday } = getWeekRange(weekOffset)
+    const today = now.toISOString().slice(0, 10)
     const days: { label: string; revenue: number; bookings: number }[] = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
       const dateStr = d.toISOString().slice(0, 10)
-      const dayLabel = format(d, 'EEE')
+      const dayLabel = dateStr === today
+        ? `Today ${format(d, 'd')}`
+        : format(d, 'EEE d')
       const dayBookings = real.filter(b => b.date === dateStr && b.status !== 'cancelled')
+      const dayPaid = real.filter(b => b.paymentStatus === 'paid' && getRevenueDate(b) === dateStr)
       days.push({
         label: dayLabel,
-        revenue: dayBookings.reduce((s, b) => s + b.amount, 0),
+        revenue: dayPaid.reduce((s, b) => s + b.amount, 0),
         bookings: dayBookings.length,
       })
     }
@@ -216,9 +235,14 @@ function buildChartData(bookings: AdminBooking[], period: ChartPeriod) {
         const bd = new Date(b.date + 'T00:00:00')
         return bd.getFullYear() === yr && bd.getMonth() === mo && b.status !== 'cancelled'
       })
+      const moPaid = real.filter(b => {
+        if (b.paymentStatus !== 'paid') return false
+        const rd = new Date(getRevenueDate(b) + 'T00:00:00')
+        return rd.getFullYear() === yr && rd.getMonth() === mo
+      })
       months.push({
         label,
-        revenue: moBookings.reduce((s, b) => s + b.amount, 0),
+        revenue: moPaid.reduce((s, b) => s + b.amount, 0),
         bookings: moBookings.length,
       })
     }
@@ -234,34 +258,18 @@ function buildChartData(bookings: AdminBooking[], period: ChartPeriod) {
       const bd = new Date(b.date + 'T00:00:00')
       return bd.getFullYear() === yr && b.status !== 'cancelled'
     })
+    const yrPaid = real.filter(b => {
+      if (b.paymentStatus !== 'paid') return false
+      const rd = new Date(getRevenueDate(b) + 'T00:00:00')
+      return rd.getFullYear() === yr
+    })
     years.push({
       label: String(yr),
-      revenue: yrBookings.reduce((s, b) => s + b.amount, 0),
+      revenue: yrPaid.reduce((s, b) => s + b.amount, 0),
       bookings: yrBookings.length,
     })
   }
   return years
-}
-
-function computeRevenueStats(bookings: AdminBooking[]) {
-  const active = realOnly(bookings).filter(b => b.status !== 'cancelled')
-  const totalRevenue = active.reduce((s, b) => s + b.amount, 0)
-
-  // Group by month to find best month
-  const byMonth: Record<string, number> = {}
-  active.forEach(b => {
-    const key = b.date.slice(0, 7) // YYYY-MM
-    byMonth[key] = (byMonth[key] || 0) + b.amount
-  })
-  const entries = Object.entries(byMonth).sort((a, b) => b[1] - a[1])
-  const bestMonthKey = entries[0]?.[0] || ''
-  const bestMonthVal = entries[0]?.[1] || 0
-  const bestMonthLabel = bestMonthKey ? format(new Date(bestMonthKey + '-01'), 'MMMM') : '-'
-
-  const monthCount = Object.keys(byMonth).length || 1
-  const avgMonthly = totalRevenue / monthCount
-
-  return { totalRevenue, bestMonthLabel, bestMonthVal, avgMonthly }
 }
 
 export default function AdminDashboardPage() {
@@ -284,53 +292,60 @@ export default function AdminDashboardPage() {
         amount: Number(b.price_snapshot || b.price || 0),
         status: (b.status || 'pending') as string,
         paymentStatus: (b.payment_status || 'unpaid') as string,
+        paidAt: (b.paid_at || '') as string,
+        createdAt: (b.created_at || '') as string,
         notes: (b.notes || '') as string,
         phone: (b.user_phone || '') as string,
-        isDemo: false,
       }))
       setRealBookings(list)
     } catch {
-      // keep demo bookings only if fetch fails
+      // API unavailable — bookings list stays empty
     }
   }, [])
 
   useEffect(() => { fetchBookings() }, [fetchBookings])
 
-  // Real bookings first (newest), then demo bookings
-  const bookings = [...realBookings, ...demoBookings]
+  const bookings = [...realBookings]
+
+  const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
   const updateStatus = async (id: string, status: string) => {
     setActionLoading(id)
+    setActionMessage(null)
     try {
-      if (id.startsWith('demo-')) {
-        // Demo bookings — just update locally (no API)
+      if (status === 'confirmed') {
+        await apiClient.patch(`/api/admin/bookings/${id}/confirm`)
+      } else if (status === 'cancelled') {
+        await apiClient.patch(`/api/admin/bookings/${id}/cancel`)
       } else {
         await apiClient.patch(`/api/bookings/${id}/status`, { status })
       }
       setRealBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b))
-      // Refresh from server to get latest state
-      if (!id.startsWith('demo-')) fetchBookings()
+      setActionMessage({ text: `Booking ${status}. User has been notified.`, type: 'success' })
+      fetchBookings()
     } catch (err) {
       console.error('Failed to update status:', err)
+      setActionMessage({ text: 'Failed to update booking status.', type: 'error' })
     } finally {
       setActionLoading(null)
+      setTimeout(() => setActionMessage(null), 4000)
     }
   }
 
   const cancelBooking = async (id: string) => {
     setActionLoading(id)
+    setActionMessage(null)
     try {
-      if (id.startsWith('demo-')) {
-        // Demo bookings — just update locally
-      } else {
-        await apiClient.delete(`/api/bookings/${id}`)
-      }
+      await apiClient.patch(`/api/admin/bookings/${id}/cancel`)
       setRealBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
-      if (!id.startsWith('demo-')) fetchBookings()
+      setActionMessage({ text: 'Booking cancelled. User has been notified.', type: 'success' })
+      fetchBookings()
     } catch (err) {
       console.error('Failed to cancel booking:', err)
+      setActionMessage({ text: 'Failed to cancel booking.', type: 'error' })
     } finally {
       setActionLoading(null)
+      setTimeout(() => setActionMessage(null), 4000)
     }
   }
 
@@ -416,6 +431,30 @@ export default function AdminDashboardPage() {
     </Dialog>
 
     <div className="space-y-6">
+      {/* ── Action Toast ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {actionMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={cn(
+              'fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2',
+              actionMessage.type === 'success'
+                ? 'bg-emerald-500 text-white'
+                : 'bg-red-500 text-white'
+            )}
+          >
+            {actionMessage.type === 'success' ? (
+              <ArrowUpRight className="h-4 w-4" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4" />
+            )}
+            {actionMessage.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -574,7 +613,7 @@ export default function AdminDashboardPage() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div>
-                          <p className="text-sm text-stone-700 dark:text-stone-300">{format(new Date(booking.date), 'MMM d')}</p>
+                          <p className="text-sm text-stone-700 dark:text-stone-300">{format(new Date(booking.date + 'T00:00:00'), 'MMM d, yyyy')}</p>
                           <p className="text-xs text-stone-400">{booking.time}</p>
                         </div>
                       </TableCell>
@@ -686,7 +725,7 @@ export default function AdminDashboardPage() {
 
           {/* Quick stats */}
           {(() => {
-            const real = bookings.filter(b => !b.isDemo)
+            const real = bookings
             const completed = real.filter(b => b.status === 'completed' || b.status === 'confirmed').length
             const total = real.length || 1
             const rate = Math.round((completed / total) * 100)
@@ -847,24 +886,49 @@ function RevenueOverview({
   chartPeriod: ChartPeriod
   setChartPeriod: (p: ChartPeriod) => void
 }) {
-  const chartData = buildChartData(bookings, chartPeriod)
-  const revStats = computeRevenueStats(bookings)
+  const [weekOffset, setWeekOffset] = useState(0)
+
+  // Reset week offset when switching away from Week view
+  useEffect(() => { if (chartPeriod !== 'Week') setWeekOffset(0) }, [chartPeriod])
+
+  const chartData = buildChartData(bookings, chartPeriod, weekOffset)
   const totalChartRevenue = chartData.reduce((s, d) => s + d.revenue, 0)
   const totalChartBookings = chartData.reduce((s, d) => s + d.bookings, 0)
 
+  // Week range label
+  const weekRange = getWeekRange(weekOffset)
+  const weekLabel = `${format(weekRange.monday, 'MMM d')} — ${format(weekRange.sunday, 'MMM d, yyyy')}`
+
   const periodLabels: Record<ChartPeriod, string> = {
-    Week: 'Last 7 days',
+    Week: weekOffset === 0 ? `This week · ${weekLabel}` : weekLabel,
     Month: 'Last 12 months',
     Year: '2020 — present',
   }
 
+  const bestPeriodLabels: Record<ChartPeriod, string> = {
+    Week: 'Best Day',
+    Month: 'Best Month',
+    Year: 'Best Year',
+  }
+
   const formatVal = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`
 
+  // Compute stats from the PERIOD data only (not all-time)
+  const bestEntry = chartData.reduce((best, d) => d.revenue > best.revenue ? d : best, { label: '-', revenue: 0, bookings: 0 })
+  const nonZeroEntries = chartData.filter(d => d.revenue > 0)
+  const avgPerEntry = nonZeroEntries.length > 0 ? totalChartRevenue / nonZeroEntries.length : 0
+
+  const avgLabel: Record<ChartPeriod, string> = {
+    Week: 'per day',
+    Month: 'per month',
+    Year: 'per year',
+  }
+
   const summaryCards = [
-    { label: 'Total Revenue', value: formatVal(revStats.totalRevenue), icon: DollarSign, sub: `${totalChartBookings} bookings`, bg: 'bg-emerald-50 dark:bg-emerald-950/30', color: 'text-emerald-600 dark:text-emerald-400' },
-    { label: 'Best Month', value: formatVal(revStats.bestMonthVal), icon: TrendingUp, sub: revStats.bestMonthLabel, bg: 'bg-violet-50 dark:bg-violet-950/30', color: 'text-violet-600 dark:text-violet-400' },
-    { label: 'Avg. Monthly', value: formatVal(revStats.avgMonthly), icon: BarChart3, sub: 'per month', bg: 'bg-cyan-50 dark:bg-cyan-950/30', color: 'text-cyan-600 dark:text-cyan-400' },
-    { label: 'Period Total', value: formatVal(totalChartRevenue), icon: ArrowUpRight, sub: periodLabels[chartPeriod], bg: 'bg-amber-50 dark:bg-amber-950/30', color: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Total Revenue', value: formatVal(totalChartRevenue), icon: DollarSign, sub: `${totalChartBookings} bookings`, bg: 'bg-emerald-50 dark:bg-emerald-950/30', color: 'text-emerald-600 dark:text-emerald-400' },
+    { label: bestPeriodLabels[chartPeriod], value: formatVal(bestEntry.revenue), icon: TrendingUp, sub: bestEntry.label, bg: 'bg-violet-50 dark:bg-violet-950/30', color: 'text-violet-600 dark:text-violet-400' },
+    { label: 'Average', value: formatVal(avgPerEntry), icon: BarChart3, sub: avgLabel[chartPeriod], bg: 'bg-cyan-50 dark:bg-cyan-950/30', color: 'text-cyan-600 dark:text-cyan-400' },
+    { label: 'Bookings', value: String(totalChartBookings), icon: ArrowUpRight, sub: periodLabels[chartPeriod], bg: 'bg-amber-50 dark:bg-amber-950/30', color: 'text-amber-600 dark:text-amber-400' },
   ]
 
   return (
@@ -885,23 +949,55 @@ function RevenueOverview({
             <p className="text-sm text-stone-500 dark:text-stone-400">{periodLabels[chartPeriod]}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-100 dark:bg-stone-800">
-          {(['Week', 'Month', 'Year'] as ChartPeriod[]).map((label) => (
-            <Button
-              key={label}
-              variant="ghost"
-              size="sm"
-              onClick={() => setChartPeriod(label)}
-              className={cn(
-                'rounded-lg text-xs h-8 px-4 transition-all',
-                chartPeriod === label
-                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
-              )}
-            >
-              {label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          {/* Week navigation arrows — only visible in Week mode */}
+          {chartPeriod === 'Week' && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(prev => prev - 1)}
+                className="rounded-lg h-8 w-8 p-0 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(0)}
+                disabled={weekOffset === 0}
+                className="rounded-lg h-8 px-3 text-xs text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 disabled:opacity-40"
+              >
+                Today
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(prev => prev + 1)}
+                className="rounded-lg h-8 w-8 p-0 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-100 dark:bg-stone-800">
+            {(['Week', 'Month', 'Year'] as ChartPeriod[]).map((label) => (
+              <Button
+                key={label}
+                variant="ghost"
+                size="sm"
+                onClick={() => setChartPeriod(label)}
+                className={cn(
+                  'rounded-lg text-xs h-8 px-4 transition-all',
+                  chartPeriod === label
+                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200'
+                )}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -953,12 +1049,12 @@ function RevenueOverview({
       <div className="flex flex-wrap items-center gap-6 mt-4 pt-5 border-t border-stone-200/80 dark:border-white/10">
         <div>
           <p className="text-xs text-stone-400 dark:text-stone-500">Total Revenue</p>
-          <p className="text-lg font-bold text-stone-900 dark:text-stone-100">${revStats.totalRevenue.toLocaleString()}</p>
+          <p className="text-lg font-bold text-stone-900 dark:text-stone-100">${totalChartRevenue.toLocaleString()}</p>
         </div>
         <div className="w-px h-8 bg-stone-200 dark:bg-stone-700" />
         <div>
-          <p className="text-xs text-stone-400 dark:text-stone-500">Best Month</p>
-          <p className="text-lg font-bold text-stone-900 dark:text-stone-100">{revStats.bestMonthLabel} · {formatVal(revStats.bestMonthVal)}</p>
+          <p className="text-xs text-stone-400 dark:text-stone-500">{bestPeriodLabels[chartPeriod]}</p>
+          <p className="text-lg font-bold text-stone-900 dark:text-stone-100">{bestEntry.label} · {formatVal(bestEntry.revenue)}</p>
         </div>
         <div className="ml-auto">
           <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400 border-0 font-medium">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, Check, CheckCheck, Calendar, Megaphone, Mail } from 'lucide-react'
+import { Bell, Check, CheckCheck, Calendar, Megaphone, Mail, XCircle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 
@@ -17,11 +17,23 @@ interface Notification {
 }
 
 const typeIcons: Record<string, typeof Calendar> = {
-  booking_confirmed: Calendar,
+  booking_confirmed: CheckCircle2,
+  booking_cancelled: XCircle,
+  booking_completed: Calendar,
   booking_reminder: Bell,
   promotional: Megaphone,
   newsletter: Mail,
   info: Bell,
+}
+
+const typeColors: Record<string, { bg: string; text: string }> = {
+  booking_confirmed: { bg: 'bg-emerald-100', text: 'text-emerald-600' },
+  booking_cancelled: { bg: 'bg-red-100', text: 'text-red-500' },
+  booking_completed: { bg: 'bg-blue-100', text: 'text-blue-600' },
+  booking_reminder: { bg: 'bg-amber-100', text: 'text-amber-600' },
+  promotional: { bg: 'bg-violet-100', text: 'text-violet-600' },
+  newsletter: { bg: 'bg-cyan-100', text: 'text-cyan-600' },
+  info: { bg: 'bg-stone-100', text: 'text-stone-400' },
 }
 
 function timeAgo(dateStr: string) {
@@ -125,6 +137,7 @@ export function NotificationBell() {
               ) : (
                 notifications.slice(0, 10).map((n) => {
                   const Icon = typeIcons[n.type] || Bell
+                  const colors = typeColors[n.type] || typeColors.info
                   return (
                     <div
                       key={n.id}
@@ -140,7 +153,7 @@ export function NotificationBell() {
                     >
                       <div className={cn(
                         'p-2 rounded-xl shrink-0 mt-0.5',
-                        !n.read ? 'bg-lime-100 text-lime-600' : 'bg-stone-100 text-stone-400'
+                        !n.read ? colors.bg + ' ' + colors.text : 'bg-stone-100 text-stone-400'
                       )}>
                         <Icon className="h-4 w-4" />
                       </div>

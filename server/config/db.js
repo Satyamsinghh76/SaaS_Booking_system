@@ -10,7 +10,12 @@ if (process.env.DB_TYPE === 'sqlite') {
   module.exports = require('./sqlite-db');
 } else {
   // Original PostgreSQL configuration
-  const { Pool } = require('pg');
+  const { Pool, types } = require('pg');
+
+  // Parse DATE (OID 1082) and TIMESTAMP (1114) as plain strings to avoid
+  // timezone-shift issues (e.g. 2026-03-18 becoming Mar 19 in IST).
+  types.setTypeParser(1082, (val) => val);  // DATE → 'YYYY-MM-DD'
+  types.setTypeParser(1114, (val) => val);  // TIMESTAMP → string
   
   // ── Pool configuration ───────────────────────────────────────
   // DATABASE_URL (Supabase / Render / Heroku) takes priority over individual
@@ -29,7 +34,7 @@ if (process.env.DB_TYPE === 'sqlite') {
         port:     parseInt(process.env.DB_PORT  || '5432', 10),
         database: process.env.DB_NAME     || 'saas_booking',
         user:     process.env.DB_USER     || 'postgres',
-        password: process.env.DB_PASSWORD || 'Satyam0408()',
+        password: process.env.DB_PASSWORD,
         // Local development typically doesn't need SSL
         ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
         application_name: 'saas-booking-platform',

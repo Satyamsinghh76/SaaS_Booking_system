@@ -120,7 +120,7 @@ const login = async (req, res, next) => {
         await UserModel.setVerificationToken(user.id, token, expires);
 
         const { sendEmail, buildFromAddress } = require('../utils/emailUtil');
-        const serverUrl = `http://localhost:${process.env.PORT || 5000}`;
+        const serverUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${process.env.PORT || 5000}`;
         const verifyUrl = `${serverUrl}/api/auth/verify-email?token=${token}`;
         sendEmail({
           from: buildFromAddress(),

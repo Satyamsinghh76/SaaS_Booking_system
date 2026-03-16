@@ -6,6 +6,8 @@ const { body, query, validationResult } = require('express-validator');
 const {
   getAllBookings,
   getBookingById,
+  confirmBooking,
+  cancelBooking,
   getAllUsers,
   getUserById,
   updateUserStatus,
@@ -78,6 +80,8 @@ router.use(...requireAdmin);
 // Bookings
 router.get('/bookings', validateDateRange, bookingListRules, getAllBookings);
 router.get('/bookings/:id', validateUuidParam('id'), getBookingById);
+router.patch('/bookings/:id/confirm', validateUuidParam('id'), confirmBooking);
+router.patch('/bookings/:id/cancel', validateUuidParam('id'), cancelBooking);
 
 // Users
 router.get('/users', validateDateRange, userListRules, getAllUsers);

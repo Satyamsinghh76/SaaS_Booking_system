@@ -1,18 +1,19 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Sparkles, Book, Code, Webhook, Key, Database, Zap } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, Book, Code, Webhook, Key, Database, Zap, ArrowRight } from 'lucide-react'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { PageTransition } from '@/components/ui/motion'
 
 const sections = [
-  { icon: Zap, title: 'Quick Start', description: 'Get up and running with BookFlow in under 5 minutes. Create your first service and accept bookings.' },
-  { icon: Book, title: 'User Guide', description: 'Complete guide to managing services, bookings, payments, and customer notifications.' },
-  { icon: Code, title: 'API Reference', description: 'RESTful API documentation for integrating BookFlow into your existing applications.' },
-  { icon: Webhook, title: 'Webhooks', description: 'Real-time event notifications for booking creation, updates, and payment status changes.' },
-  { icon: Key, title: 'Authentication', description: 'JWT-based auth, Google OAuth integration, and API key management.' },
-  { icon: Database, title: 'Data Model', description: 'Understanding the BookFlow data model: users, services, bookings, and payments.' },
+  { icon: Zap, title: 'Quick Start', href: '/documentation/quick-start', description: 'Get up and running with BookFlow in under 5 minutes. Create your first service and accept bookings.' },
+  { icon: Book, title: 'User Guide', href: '/documentation/user-guide', description: 'Complete guide to managing services, bookings, payments, and customer notifications.' },
+  { icon: Code, title: 'API Reference', href: '/documentation/api-reference', description: 'RESTful API documentation for integrating BookFlow into your existing applications.' },
+  { icon: Webhook, title: 'Webhooks', href: '/documentation/webhooks', description: 'Real-time event notifications for booking creation, updates, and payment status changes.' },
+  { icon: Key, title: 'Authentication', href: '/documentation/authentication', description: 'JWT-based auth, Google OAuth integration, and API key management.' },
+  { icon: Database, title: 'Data Model', href: '/documentation/data-model', description: 'Understanding the BookFlow data model: users, services, bookings, and payments.' },
 ]
 
 export default function DocumentationPage() {
@@ -47,13 +48,25 @@ export default function DocumentationPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16">
                 {sections.map((s, i) => (
-                  <motion.div key={s.title} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.06 }} className="card-glow group p-6 rounded-2xl border bg-white dark:bg-stone-900/80 border-stone-200/80 dark:border-white/10 hover:border-primary/30 dark:hover:border-primary/40 transition-all duration-300 cursor-pointer">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/15 mb-4 group-hover:bg-primary/20 transition-colors">
-                      <s.icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-bold text-foreground mb-2 group-hover:text-primary transition-colors">{s.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{s.description}</p>
-                  </motion.div>
+                  <Link key={s.title} href={s.href}>
+                    <motion.div
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 + i * 0.06 }}
+                      whileHover={{ y: -4 }}
+                      className="card-glow group p-6 rounded-2xl border bg-white dark:bg-stone-900/80 border-stone-200/80 dark:border-white/10 hover:border-primary/30 dark:hover:border-primary/40 transition-all duration-300 cursor-pointer h-full"
+                    >
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/15 mb-4 group-hover:bg-primary/20 transition-colors">
+                        <s.icon className="h-6 w-6 text-primary" />
+                      </div>
+                      <h3 className="text-lg font-bold text-foreground mb-2 group-hover:text-primary transition-colors">{s.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">{s.description}</p>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        Read more
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </motion.div>
+                  </Link>
                 ))}
               </div>
             </div>

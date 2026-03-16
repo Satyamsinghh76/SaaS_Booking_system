@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useTheme } from 'next-themes'
+import { useTheme } from '@/lib/hooks/useTheme'
 import {
   Menu,
   X,
@@ -33,14 +33,12 @@ import { NotificationBell } from '@/components/dashboard/notification-bell'
 export function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const { resolvedTheme, toggleTheme, mounted } = useTheme()
   const [scrolled, setScrolled] = useState(false)
   const { isMobileMenuOpen, setMobileMenuOpen, currentUser, setCurrentUser, clearAuth } = useBookingStore()
 
   // Restore session if token exists but user is null
   useEffect(() => {
-    setMounted(true)
     const handleScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', handleScroll)
 
@@ -143,14 +141,14 @@ export function Navbar() {
               {/* Theme toggle */}
               {mounted && (
                 <motion.button
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  onClick={toggleTheme}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   aria-label="Toggle theme"
                 >
                   <AnimatePresence mode="wait">
-                    {theme === 'dark' ? (
+                    {resolvedTheme === 'dark' ? (
                       <motion.div key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
                         <Sun className="h-5 w-5" />
                       </motion.div>

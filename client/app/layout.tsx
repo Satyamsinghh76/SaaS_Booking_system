@@ -9,6 +9,25 @@ export const metadata: Metadata = {
   description: 'The complete booking solution for modern businesses.',
 }
 
+/**
+ * Inline script that runs before React hydration to prevent flash.
+ * Reads the saved theme from localStorage (key: "theme") or falls back
+ * to the system preference via prefers-color-scheme.
+ */
+const themeInitScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('theme');
+    var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  } catch(e) {}
+})();
+`
+
 export default function RootLayout({
   children,
 }: {
@@ -16,8 +35,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-[#fafaf9] text-stone-800 dark:bg-stone-950 dark:text-stone-200">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="bookflow-theme">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="bg-[#fafaf9] text-stone-800 dark:bg-stone-950 dark:text-stone-200 transition-colors duration-300">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme">
           <GoogleAuthProvider>
             {children}
             <TawkChat />

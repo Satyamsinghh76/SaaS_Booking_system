@@ -1,6 +1,12 @@
 'use strict';
 
 const { AdminBookingModel, AdminUserModel } = require('../models/adminModel');
+const BookingModel        = require('../models/bookingModel');
+const NotificationModel   = require('../models/notificationModel');
+const NotificationService = require('../services/notificationService');
+const CalendarService     = require('../services/calendarService');
+const CalendarModel       = require('../models/calendarModel');
+const TokenModel          = require('../models/tokenModel');
 const Q = require('../utils/analyticsQueries');
 
 // ── Shared helpers ────────────────────────────────────────────
@@ -473,10 +479,136 @@ const getDashboard = async (req, res, next) => {
   }
 };
 
+// ════════════════════════════════════════════════════════════
+//  BOOKING ACTIONS — Confirm / Cancel
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Fire-and-forget calendar sync for a booking.
+ * Silently skips if no admin has connected Google Calendar.
+ */
+const calendarSync = async (bookingId, action = 'sync') => {
+  try {
+    const adminId = await TokenModel.getAuthorizedAdminId();
+    if (!adminId) return;
+    const booking = await CalendarModel.findBookingForCalendar(bookingId);
+    if (!booking) return;
+    if (action === 'sync') {
+      const result = await CalendarService.syncBooking(booking, adminId);
+      if (result.eventId) {
+        await CalendarModel.saveGoogleEventId(bookingId, result.eventId, adminId);
+      }
+    } else if (action === 'delete' && booking.google_event_id) {
+      await CalendarService.deleteEvent(booking.google_event_id, adminId);
+      await CalendarModel.clearGoogleEventId(bookingId);
+    }
+  } catch (err) {
+    console.error(`[calendar] Failed to ${action} booking ${bookingId}:`, err.message);
+  }
+};
+
+/**
+ * PATCH /api/admin/bookings/:id/confirm
+ * Confirm a pending booking. Sends notification + email + calendar sync.
+ */
+const confirmBooking = async (req, res, next) => {
+  try {
+    const booking = await BookingModel.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(422).json({
+        success: false,
+        message: `Cannot confirm a booking with status '${booking.status}'. Only pending bookings can be confirmed.`,
+      });
+    }
+
+    await BookingModel.updateStatus(req.params.id, 'confirmed', {
+      actorId: req.user.id,
+    });
+
+    const updated = await BookingModel.findById(req.params.id);
+
+    // Respond immediately
+    res.json({ success: true, message: 'Booking confirmed.', data: updated });
+
+    // Fire-and-forget: email + in-app notification + calendar
+    NotificationService.sendBookingConfirmed(updated);
+
+    NotificationModel.create({
+      userId: updated.user_id,
+      title: 'Booking Confirmed',
+      message: `Your booking for ${updated.service_name} on ${updated.date} has been confirmed.`,
+      type: 'booking_confirmed',
+      link: '/dashboard/bookings',
+    }).catch(() => {});
+
+    calendarSync(req.params.id, 'sync');
+  } catch (err) {
+    if (err.code === 'INVALID_TRANSITION') {
+      return res.status(422).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/admin/bookings/:id/cancel
+ * Cancel a pending or confirmed booking. Sends notification + email + calendar delete.
+ */
+const cancelBooking = async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+
+    const booking = await BookingModel.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      return res.status(422).json({
+        success: false,
+        message: `Cannot cancel a booking with status '${booking.status}'.`,
+      });
+    }
+
+    await BookingModel.updateStatus(req.params.id, 'cancelled', {
+      actorId: req.user.id,
+      reason,
+    });
+
+    const updated = await BookingModel.findById(req.params.id);
+
+    res.json({ success: true, message: 'Booking cancelled.', data: updated });
+
+    // Fire-and-forget: email + in-app notification + calendar delete
+    NotificationService.sendBookingCancelled(updated, { cancelledBy: 'admin', reason });
+
+    NotificationModel.create({
+      userId: updated.user_id,
+      title: 'Booking Cancelled',
+      message: `Your booking for ${updated.service_name} on ${updated.date} has been cancelled by admin.${reason ? ` Reason: ${reason}` : ''}`,
+      type: 'booking_cancelled',
+      link: '/dashboard/bookings',
+    }).catch(() => {});
+
+    calendarSync(req.params.id, 'delete');
+  } catch (err) {
+    if (err.code === 'INVALID_TRANSITION') {
+      return res.status(422).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+};
+
 module.exports = {
   // Bookings
   getAllBookings,
   getBookingById,
+  confirmBooking,
+  cancelBooking,
   // Users
   getAllUsers,
   getUserById,

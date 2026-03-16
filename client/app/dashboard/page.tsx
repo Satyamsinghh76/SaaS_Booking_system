@@ -49,8 +49,10 @@ function mapAPIBooking(b: APIBooking): Booking {
     date: b.date,
     time: b.start_time,
     status:
-      b.status === 'pending' || b.status === 'confirmed'
-        ? 'upcoming'
+      b.status === 'pending'
+        ? 'pending'
+        : b.status === 'confirmed'
+        ? 'confirmed'
         : b.status === 'completed'
         ? 'completed'
         : 'cancelled',
@@ -81,13 +83,13 @@ export default function DashboardPage() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  const upcomingBookings = bookings.filter(b => b.status === 'upcoming').slice(0, 5)
+  const upcomingBookings = bookings.filter(b => b.status === 'pending' || b.status === 'confirmed').slice(0, 5)
   const recentBookings = [...bookings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
 
   const paidBookings = bookings.filter(b => b.paymentStatus === 'paid' && b.status !== 'cancelled')
   const totalSpent = paidBookings.reduce((sum, b) => sum + b.price, 0)
 
-  const upcomingCount = bookings.filter(b => b.status === 'upcoming').length
+  const upcomingCount = bookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length
   const completedCount = bookings.filter(b => b.status === 'completed').length
   const totalCount = bookings.filter(b => b.status !== 'cancelled').length
 
@@ -298,10 +300,9 @@ export default function DashboardPage() {
           <div className="space-y-3 flex-1">
             {recentBookings.slice(0, 3).map((booking) => {
               const statusConfig: Record<string, { bg: string; icon: typeof CheckCircle2; color: string; label: string }> = {
-                completed:  { bg: 'bg-emerald-50', icon: CheckCircle2, color: 'text-emerald-500', label: 'Completed' },
-                upcoming:   { bg: 'bg-blue-50',    icon: Clock,        color: 'text-blue-500',    label: 'Upcoming' },
-                confirmed:  { bg: 'bg-lime-50',    icon: CheckCircle2, color: 'text-lime-500',    label: 'Confirmed' },
-                pending:    { bg: 'bg-amber-50',   icon: Clock,        color: 'text-amber-500',   label: 'Pending' },
+                pending:    { bg: 'bg-amber-50',   icon: Clock,        color: 'text-amber-500',   label: 'Pending Approval' },
+                confirmed:  { bg: 'bg-emerald-50', icon: CheckCircle2, color: 'text-emerald-500', label: 'Confirmed' },
+                completed:  { bg: 'bg-blue-50',    icon: CheckCircle2, color: 'text-blue-500',    label: 'Completed' },
                 cancelled:  { bg: 'bg-red-50',     icon: XCircle,      color: 'text-red-500',     label: 'Cancelled' },
               }
               const cfg = statusConfig[booking.status] || statusConfig.pending
@@ -389,15 +390,15 @@ export default function DashboardPage() {
 
                   {/* Status */}
                   <div className="col-span-2 hidden sm:block">
-                    {booking.paymentStatus === 'paid' ? (
+                    {booking.status === 'confirmed' ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Paid
+                        Confirmed
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        Pending
+                        Pending Approval
                       </span>
                     )}
                   </div>

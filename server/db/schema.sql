@@ -153,6 +153,10 @@ CREATE TABLE IF NOT EXISTS bookings (
   -- Contact for SMS reminders
   user_phone          TEXT,
 
+  -- Customer info captured at booking time (may differ from account)
+  customer_name       TEXT,
+  customer_email      TEXT,
+
   -- Notes from customer
   notes               TEXT,
 

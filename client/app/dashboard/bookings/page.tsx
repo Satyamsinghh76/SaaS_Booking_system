@@ -57,8 +57,10 @@ function mapAPIBooking(b: APIBooking): Booking {
     date: b.date,
     time: b.start_time,
     status:
-      b.status === 'pending' || b.status === 'confirmed'
-        ? 'upcoming'
+      b.status === 'pending'
+        ? 'pending'
+        : b.status === 'confirmed'
+        ? 'confirmed'
         : b.status === 'completed'
         ? 'completed'
         : 'cancelled',
@@ -69,7 +71,8 @@ function mapAPIBooking(b: APIBooking): Booking {
 
 const tabs = [
   { value: 'all', label: 'All', count: 0 },
-  { value: 'upcoming', label: 'Upcoming', count: 0 },
+  { value: 'pending', label: 'Pending', count: 0 },
+  { value: 'confirmed', label: 'Confirmed', count: 0 },
   { value: 'completed', label: 'Completed', count: 0 },
   { value: 'cancelled', label: 'Cancelled', count: 0 },
 ]
@@ -150,7 +153,8 @@ export default function BookingsPage() {
   // Compute tab counts
   const tabCounts = {
     all: bookings.length,
-    upcoming: bookings.filter(b => b.status === 'upcoming').length,
+    pending: bookings.filter(b => b.status === 'pending').length,
+    confirmed: bookings.filter(b => b.status === 'confirmed').length,
     completed: bookings.filter(b => b.status === 'completed').length,
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
   }
@@ -410,8 +414,9 @@ export default function BookingsPage() {
 
 function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; onCancel: () => void; onReschedule: () => void }) {
   const statusConfig = {
-    upcoming: { label: 'Upcoming', dot: 'bg-blue-500', bg: 'bg-blue-50 text-blue-700' },
-    completed: { label: 'Completed', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700' },
+    pending: { label: 'Pending Approval', dot: 'bg-amber-500', bg: 'bg-amber-50 text-amber-700' },
+    confirmed: { label: 'Confirmed', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700' },
+    completed: { label: 'Completed', dot: 'bg-blue-500', bg: 'bg-blue-50 text-blue-700' },
     cancelled: { label: 'Cancelled', dot: 'bg-stone-400', bg: 'bg-stone-100 text-stone-500' },
   }
   const cfg = statusConfig[booking.status]
@@ -431,11 +436,11 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
         {/* Icon */}
         <div className={cn(
           'p-3 rounded-xl shrink-0 w-fit',
-          booking.status === 'upcoming' ? 'bg-lime-50' : booking.status === 'completed' ? 'bg-emerald-50' : 'bg-stone-100'
+          booking.status === 'pending' ? 'bg-amber-50' : booking.status === 'confirmed' ? 'bg-emerald-50' : booking.status === 'completed' ? 'bg-blue-50' : 'bg-stone-100'
         )}>
           <Briefcase className={cn(
             'h-5 w-5',
-            booking.status === 'upcoming' ? 'text-lime-600' : booking.status === 'completed' ? 'text-emerald-600' : 'text-stone-400'
+            booking.status === 'pending' ? 'text-amber-600' : booking.status === 'confirmed' ? 'text-emerald-600' : booking.status === 'completed' ? 'text-blue-600' : 'text-stone-400'
           )} />
         </div>
 
@@ -456,7 +461,7 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
                 <CheckCircle2 className="h-3 w-3" />
                 Paid
               </span>
-            ) : booking.status === 'upcoming' ? (
+            ) : (booking.status === 'pending' || booking.status === 'confirmed') ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 Unpaid
@@ -482,7 +487,7 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {booking.status === 'upcoming' && (
+          {(booking.status === 'pending' || booking.status === 'confirmed') && (
             <>
               {booking.paymentStatus !== 'paid' && (
                 <Link href={`/payment?bookingId=${booking.id}`}>
