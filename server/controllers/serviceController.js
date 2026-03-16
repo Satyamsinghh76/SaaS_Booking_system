@@ -78,7 +78,7 @@ const getServiceById = async (req, res, next) => {
  */
 const createService = async (req, res, next) => {
   try {
-    const { name, description, duration_minutes, price } = req.body;
+    const { name, description, duration_minutes, price, category } = req.body;
     const adminId = req.user?.id;
 
     // Prevent duplicate service names
@@ -94,6 +94,7 @@ const createService = async (req, res, next) => {
       description,
       duration_minutes,
       price,
+      category,
       createdBy: adminId,
     });
 
@@ -117,7 +118,7 @@ const createService = async (req, res, next) => {
 const updateService = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, duration_minutes, price } = req.body;
+    const { name, description, duration_minutes, price, category } = req.body;
     const adminId = req.user?.id;
 
     // Ensure the service actually exists before any further checks
@@ -136,7 +137,7 @@ const updateService = async (req, res, next) => {
 
     const updated = await ServiceModel.update(
       id,
-      { name, description, duration_minutes, price },
+      { name, description, duration_minutes, price, category },
       adminId
     );
 
@@ -161,7 +162,7 @@ const deleteService = async (req, res, next) => {
     const { id } = req.params;
     const adminId = req.user?.id;
 
-    const deleted = await ServiceModel.softDelete(id, adminId);
+    const deleted = await ServiceModel.softDelete(id);
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Service not found.' });

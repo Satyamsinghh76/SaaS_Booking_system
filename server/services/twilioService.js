@@ -107,20 +107,27 @@ class TwilioService {
    * Format phone number for Twilio
    */
   formatPhoneNumber(phone) {
-    // Remove all non-numeric characters
-    let cleaned = phone.replace(/\D/g, '');
-    
-    // Add country code if missing (assuming US)
-    if (cleaned.length === 10) {
-      cleaned = '1' + cleaned;
+    const trimmed = phone.trim();
+
+    // Already in E.164 format (+countrycode number)
+    if (trimmed.startsWith('+') && trimmed.length >= 10) {
+      return trimmed;
     }
-    
-    // Format as +1XXXXXXXXXX
-    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+
+    // Remove non-numeric characters
+    const cleaned = trimmed.replace(/\D/g, '');
+
+    // 10-digit US number — add +1
+    if (cleaned.length === 10) {
+      return '+1' + cleaned;
+    }
+
+    // 11+ digits — assume country code is included, add +
+    if (cleaned.length >= 11) {
       return '+' + cleaned;
     }
-    
-    throw new Error('Invalid phone number format');
+
+    throw new Error('Invalid phone number format. Include country code (e.g. +91...)');
   }
 
   /**

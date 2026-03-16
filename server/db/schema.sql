@@ -521,6 +521,43 @@ CREATE TABLE IF NOT EXISTS user_sms_preferences (
 
 
 -- =============================================================================
+-- TABLE: notifications
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       TEXT        NOT NULL,
+  message     TEXT        NOT NULL,
+  type        TEXT        NOT NULL DEFAULT 'info'
+                          CHECK (type IN ('booking_confirmed','booking_reminder','promotional','newsletter','info')),
+  read        BOOLEAN     NOT NULL DEFAULT FALSE,
+  link        TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, read) WHERE read = FALSE;
+
+-- =============================================================================
+-- TABLE: payment_methods
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS payment_methods (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  card_type    TEXT        NOT NULL DEFAULT 'visa',
+  last4        TEXT        NOT NULL,
+  expiry_month INTEGER     NOT NULL,
+  expiry_year  INTEGER     NOT NULL,
+  is_default   BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_methods_user_id ON payment_methods (user_id);
+
+
+-- =============================================================================
 -- Seed data
 -- =============================================================================
 

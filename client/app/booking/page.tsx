@@ -87,14 +87,17 @@ function BookingContent() {
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [customerInfo, setCustomerInfo] = useState({ name: '', email: '', phone: '' })
 
-  // Initialize selected service from URL param
+  // Initialize selected service from URL param and skip to step 2
   useEffect(() => {
-    if (serviceIdParam && !selectedService) {
+    if (serviceIdParam && services.length > 0) {
       const service = services.find(s => s.id === serviceIdParam)
-      if (service) setSelectedService(service)
+      if (service) {
+        setSelectedService(service)
+        setStep(2)
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceIdParam])
+  }, [serviceIdParam, services])
 
   // fetch services from backend and display them as cards
   const [loadingServices, setLoadingServices] = useState(true)
@@ -188,11 +191,9 @@ function BookingContent() {
     fetchRecommendedSlots(selectedService.id)
       .then((recs) => {
         const dateStr = format(selectedDate, 'yyyy-MM-dd')
-        // Prioritize slots for the selected date, fill remaining with other dates
+        // Only show slots for the selected date
         const forDate = recs.filter(r => r.date === dateStr)
-        const otherDates = recs.filter(r => r.date !== dateStr)
-        const combined = [...forDate, ...otherDates].slice(0, 5)
-        setRecommendations(combined)
+        setRecommendations(forDate.slice(0, 5))
       })
       .catch(() => setRecommendations([]))
       .finally(() => setLoadingRecs(false))
@@ -251,23 +252,23 @@ function BookingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#fafaf9] dark:bg-stone-950">
       <Navbar />
-      
+
       <PageTransition>
         <main className="pt-24 pb-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
             {/* Header */}
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <motion.h1 
-                className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground"
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <motion.h1
+                className="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 dark:text-white"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
                 Book your appointment
               </motion.h1>
-              <motion.p 
-                className="mt-4 text-lg text-muted-foreground"
+              <motion.p
+                className="mt-2 text-stone-500 dark:text-stone-400 text-sm"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
@@ -277,44 +278,50 @@ function BookingContent() {
             </div>
 
             {/* Progress steps */}
-            <motion.div 
-              className="flex items-center justify-center gap-4 mb-12"
+            <motion.div
+              className="flex items-center justify-center mb-10"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.15 }}
             >
-              {[
-                { num: 1, label: 'Service' },
-                { num: 2, label: 'Date & Time' },
-                { num: 3, label: 'Confirm' },
-              ].map((s, index) => (
-                <div key={s.num} className="flex items-center">
-                  <motion.div 
-                    className={cn(
-                      'flex items-center justify-center w-10 h-10 rounded-full font-medium transition-all',
-                      step >= s.num 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted text-muted-foreground'
+              <div className="flex items-center gap-0 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl p-2 shadow-sm">
+                {[
+                  { num: 1, label: 'Service' },
+                  { num: 2, label: 'Date & Time' },
+                  { num: 3, label: 'Confirm' },
+                ].map((s, index) => (
+                  <div key={s.num} className="flex items-center">
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300',
+                        step === s.num
+                          ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 shadow-sm'
+                          : step > s.num
+                          ? 'text-lime-600 dark:text-lime-400'
+                          : 'text-stone-400 dark:text-stone-500'
+                      )}
+                    >
+                      <span className={cn(
+                        'flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-all',
+                        step > s.num
+                          ? 'bg-lime-100 dark:bg-lime-900 text-lime-600 dark:text-lime-400'
+                          : step === s.num
+                          ? 'bg-white/20 dark:bg-stone-800 text-white dark:text-stone-200'
+                          : 'bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500'
+                      )}>
+                        {step > s.num ? <Check className="h-3.5 w-3.5" /> : s.num}
+                      </span>
+                      <span className="hidden sm:inline">{s.label}</span>
+                    </div>
+                    {index < 2 && (
+                      <div className={cn(
+                        'w-6 sm:w-8 h-px mx-1 transition-colors duration-300',
+                        step > s.num ? 'bg-lime-400' : 'bg-stone-200 dark:bg-stone-700'
+                      )} />
                     )}
-                    animate={step === s.num ? { scale: [1, 1.1, 1] } : {}}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {step > s.num ? <Check className="h-5 w-5" /> : s.num}
-                  </motion.div>
-                  <span className={cn(
-                    'ml-2 text-sm font-medium hidden sm:inline',
-                    step >= s.num ? 'text-foreground' : 'text-muted-foreground'
-                  )}>
-                    {s.label}
-                  </span>
-                  {index < 2 && (
-                    <div className={cn(
-                      'w-12 sm:w-20 h-0.5 mx-4 transition-colors',
-                      step > s.num ? 'bg-primary' : 'bg-muted'
-                    )} />
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </motion.div>
 
             {/* Content */}
@@ -328,16 +335,16 @@ function BookingContent() {
                 >
                   {/* Loading skeleton cards */}
                   {loadingServices && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="p-6 bg-card rounded-xl border animate-pulse">
-                          <div className="h-5 w-24 bg-muted rounded mb-3" />
-                          <div className="h-5 w-3/4 bg-muted rounded mb-2" />
-                          <div className="h-4 w-full bg-muted rounded mb-1" />
-                          <div className="h-4 w-2/3 bg-muted rounded mb-4" />
+                        <div key={i} className="p-6 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 animate-pulse">
+                          <div className="h-4 w-20 bg-stone-100 dark:bg-stone-800 rounded-lg mb-4" />
+                          <div className="h-5 w-3/4 bg-stone-100 dark:bg-stone-800 rounded-lg mb-2" />
+                          <div className="h-4 w-full bg-stone-100 dark:bg-stone-800 rounded-lg mb-1" />
+                          <div className="h-4 w-2/3 bg-stone-100 dark:bg-stone-800 rounded-lg mb-5" />
                           <div className="flex gap-4">
-                            <div className="h-4 w-20 bg-muted rounded" />
-                            <div className="h-4 w-16 bg-muted rounded" />
+                            <div className="h-4 w-20 bg-stone-100 dark:bg-stone-800 rounded-lg" />
+                            <div className="h-4 w-16 bg-stone-100 dark:bg-stone-800 rounded-lg" />
                           </div>
                         </div>
                       ))}
@@ -354,37 +361,48 @@ function BookingContent() {
 
                   {/* Service cards from backend */}
                   {!loadingServices && !servicesError && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {services.map((service) => (
                         <motion.button
                           key={service.id}
                           onClick={() => handleServiceSelect(service)}
                           className={cn(
-                            'text-left p-6 bg-card rounded-xl border transition-all',
-                            'hover:shadow-lg hover:border-primary/20',
-                            selectedService?.id === service.id && 'border-primary ring-2 ring-primary/20'
+                            'group text-left bg-white dark:bg-stone-900 rounded-2xl border overflow-hidden transition-all duration-300',
+                            selectedService?.id === service.id
+                              ? 'border-lime-500 ring-2 ring-lime-500/20 shadow-md'
+                              : 'border-stone-200 dark:border-stone-800 hover:shadow-md hover:border-stone-300 dark:hover:border-stone-700'
                           )}
-                          whileHover={{ y: -4 }}
+                          whileHover={{ y: -3 }}
                           whileTap={{ scale: 0.98 }}
                         >
-                          {service.category && (
-                            <Badge variant="secondary" className="mb-3">
-                              {service.category}
-                            </Badge>
-                          )}
-                          <h3 className="text-lg font-semibold text-foreground mb-2">
-                            {service.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {service.description}
-                          </p>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <Clock className="h-4 w-4" /> {service.duration} min
-                            </span>
-                            <span className="flex items-center gap-1 font-medium text-foreground">
-                              <DollarSign className="h-4 w-4" /> {service.price}
-                            </span>
+                          <div className="p-5">
+                            <div className="flex items-start justify-between mb-3">
+                              {service.category && (
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-lime-700 dark:text-lime-400 bg-lime-50 dark:bg-lime-900/30 px-2.5 py-1 rounded-lg">
+                                  {service.category}
+                                </span>
+                              )}
+                              {selectedService?.id === service.id && (
+                                <div className="w-5 h-5 rounded-full bg-lime-500 flex items-center justify-center">
+                                  <Check className="h-3 w-3 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <h3 className="text-base font-bold text-stone-900 dark:text-white mb-1.5 group-hover:text-lime-700 dark:group-hover:text-lime-400 transition-colors">
+                              {service.name}
+                            </h3>
+                            <p className="text-sm text-stone-500 dark:text-stone-400 mb-4 line-clamp-2">
+                              {service.description}
+                            </p>
+                            <div className="flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800">
+                              <span className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">
+                                <Clock className="h-3.5 w-3.5" /> {service.duration} min
+                              </span>
+                              <span className="flex items-baseline gap-0.5">
+                                <span className="text-xs text-stone-400">$</span>
+                                <span className="text-lg font-extrabold text-stone-900 dark:text-white">{service.price}</span>
+                              </span>
+                            </div>
                           </div>
                         </motion.button>
                       ))}

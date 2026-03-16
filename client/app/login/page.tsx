@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AxiosError } from 'axios'
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Calendar, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Calendar, Loader2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,9 +35,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
-  const { 
-    register, 
-    handleSubmit, 
+  const {
+    register,
+    handleSubmit,
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -49,7 +49,7 @@ export default function LoginPage() {
     try {
       const user = await api.auth.login({ email: data.email, password: data.password })
       setCurrentUser(user)
-      router.push(user.role === 'admin' ? '/admin' : '/dashboard')
+      router.push(user.role === 'admin' ? '/admin' : '/services')
     } catch (err: unknown) {
       const axiosErr = err instanceof AxiosError ? err : null
       const status = axiosErr?.response?.status
@@ -70,257 +70,313 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <motion.div 
-          className="w-full max-w-md"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 mb-8">
-            <motion.div 
-              className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-            >
-              <Calendar className="h-5 w-5 text-primary-foreground" />
-            </motion.div>
-            <span className="text-xl font-semibold text-foreground">
-              BookFlow
-            </span>
-          </Link>
-
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-            <p className="mt-2 text-muted-foreground">
-              Enter your credentials to access your account
-            </p>
+    <div className="min-h-screen bg-[#f8f8f6] flex flex-col">
+      {/* ── Navbar ─────────────────────────────────────────────── */}
+      <motion.nav
+        className="flex items-center justify-between px-6 sm:px-10 lg:px-14 h-16 border-b border-stone-200/60 bg-[#f8f8f6]"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-stone-900">
+            <Calendar className="h-4 w-4 text-white" />
           </div>
+          <span className="text-lg font-bold text-stone-900 tracking-tight">BookFlow</span>
+        </Link>
 
-          {/* Verified banner */}
-          {verified && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
+        <div className="hidden sm:flex items-center gap-8 text-sm text-stone-500">
+          <Link href="/" className="hover:text-stone-900 transition-colors">Home</Link>
+          <Link href="/services" className="hover:text-stone-900 transition-colors">Services</Link>
+          <Link href="/booking" className="hover:text-stone-900 transition-colors">Book Now</Link>
+        </div>
+
+        <Link href="/signup">
+          <Button variant="outline" className="rounded-full border-stone-300 text-stone-700 hover:bg-stone-900 hover:text-white hover:border-stone-900 transition-all duration-300 px-5 h-9 text-sm font-medium">
+            Sign up
+          </Button>
+        </Link>
+      </motion.nav>
+
+      {/* ── Main split layout ──────────────────────────────────── */}
+      <div className="flex-1 flex flex-col lg:flex-row">
+
+        {/* ── LEFT: Marketing section ──────────────────────────── */}
+        <motion.div
+          className="flex-1 flex flex-col justify-center px-8 sm:px-14 lg:px-20 py-12 lg:py-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="max-w-lg">
+            {/* Tagline */}
+            <motion.p
+              className="text-sm font-semibold tracking-[0.2em] uppercase text-stone-400 mb-6"
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 rounded-md bg-success/10 px-4 py-3 text-sm text-success"
+              transition={{ delay: 0.1 }}
             >
-              Email verified successfully! You can now sign in.
-            </motion.div>
-          )}
+              SMART SAAS BOOKING PLATFORM
+            </motion.p>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Email field */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@example.com"
-                  className={cn(
-                    'pl-10 h-11',
-                    errors.email && 'border-destructive focus-visible:ring-destructive'
-                  )}
-                  {...register('email')}
-                />
-              </div>
-              <AnimatePresence>
-                {errors.email && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="text-sm text-destructive"
-                  >
-                    {errors.email.message}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Password field */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link 
-                  href="#" 
-                  className="text-sm text-primary hover:text-primary/80 transition-colors"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  className={cn(
-                    'pl-10 pr-10 h-11',
-                    errors.password && 'border-destructive focus-visible:ring-destructive'
-                  )}
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <AnimatePresence>
-                {errors.password && (
-                  <motion.p
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="text-sm text-destructive"
-                  >
-                    {errors.password.message}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Remember me */}
-            <div className="flex items-center gap-2">
-              <Checkbox id="remember" />
-              <Label htmlFor="remember" className="text-sm font-normal text-muted-foreground">
-                Remember me for 30 days
-              </Label>
-            </div>
-
-            {/* API error */}
-            <AnimatePresence>
-              {apiError && (
-                <motion.p
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="text-sm text-destructive text-center bg-destructive/10 rounded-md px-3 py-2"
-                >
-                  {apiError}
-                </motion.p>
-              )}
-            </AnimatePresence>
-
-            {/* Submit button */}
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Button 
-                type="submit" 
-                className="w-full h-11 bg-primary hover:bg-primary/90"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </motion.div>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
+            {/* Hero headline */}
+            <motion.h1
+              className="text-[clamp(2.5rem,5vw,4.5rem)] font-extrabold leading-[0.95] tracking-tight text-stone-900"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.6 }}
+            >
+              MANAGE
+              <br />
+              BOOKINGS
+              <br />
+              <span className="inline-flex items-center gap-3">
+                EFFORTLESSLY
+                <span className="inline-flex gap-1 translate-y-1">
+                  <span className="w-4 h-4 rounded-full bg-lime-300" />
+                  <span className="w-4 h-4 rounded-full bg-lime-400" />
+                  <span className="w-4 h-4 rounded-full bg-emerald-500" />
+                </span>
               </span>
-            </div>
+            </motion.h1>
+
+            {/* Description */}
+            <motion.p
+              className="mt-6 text-stone-500 text-base leading-relaxed max-w-sm"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+             BookFlow helps businesses manage appointments, services, payments, reminders, and analytics in one powerful booking platform.
+            </motion.p>
+
+            {/* CTA */}
+            <motion.div
+              className="mt-8 flex items-center gap-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Link href="/signup" className="group inline-flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors border-b border-stone-400 pb-0.5">
+                Start using BookFlow →
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </motion.div>
+
           </div>
 
-          {/* Social login */}
-          <div className="flex flex-col items-center gap-4">
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                if (!credentialResponse.credential) return
-                setIsLoading(true)
-                setApiError(null)
-                try {
-                  const user = await googleLogin(credentialResponse.credential)
-                  setCurrentUser(user)
-                  router.push(user.role === 'admin' ? '/admin' : '/dashboard')
-                } catch {
-                  setApiError('Google sign-in failed. Please try again.')
-                } finally {
-                  setIsLoading(false)
-                }
-              }}
-              onError={() => setApiError('Google sign-in failed. Please try again.')}
-              size="large"
-              width="400"
-              text="continue_with"
-              shape="rectangular"
-              theme="outline"
+          {/* Bottom image strip with About text */}
+          <motion.div
+            className="relative mt-auto overflow-hidden rounded-2xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <img
+              src="/saas-bg.jpg"
+              alt="SaaS Platform"
+              className="w-full h-44 object-cover"
             />
+            <div className="absolute inset-0 bg-gradient-to-r from-stone-900/85 via-stone-900/70 to-stone-900/40" />
+            <div className="absolute inset-0 flex items-center px-7 py-5">
+              <div>
+                <p className="text-xs font-semibold tracking-widest uppercase text-lime-400 mb-2">About us</p>
+                <p className="text-sm text-white/90 leading-relaxed max-w-md">
+                 Hundreds of businesses use <strong className="text-white">BookFlow</strong> to automate scheduling, manage services, handle payments, send reminders, and grow their customer base — all from one powerful platform.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* ── RIGHT: Image + floating login card ───────────────── */}
+        <div className="flex-1 relative min-h-[500px] lg:min-h-0">
+          {/* Background image */}
+          <div className="absolute inset-0 overflow-hidden rounded-tl-[2rem] lg:rounded-tl-[3rem]">
+            {/* SaaS background image — replace /saas-bg.jpg with your own image */}
+            <img
+              src="/saas-bg.jpg"
+              alt="SaaS Platform"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Dark overlay for contrast with the login card */}
+            <div className="absolute inset-0 bg-stone-900/40" />
           </div>
 
-          {/* Sign up link */}
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="text-primary hover:text-primary/80 font-medium transition-colors">
-              Sign up
-            </Link>
-          </p>
-        </motion.div>
-      </div>
+          {/* ── Floating Login Card ────────────────────────────── */}
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center p-6"
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+          >
+            <div className="w-full max-w-[380px] bg-white/60 backdrop-blur-md rounded-3xl shadow-2xl shadow-stone-900/15 p-8 border border-white/50">
+              {/* Card header */}
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-bold text-stone-900">Login to your account</h2>
+              </div>
 
-      {/* Right side - Visual */}
-      <div className="hidden lg:flex flex-1 bg-muted/30 items-center justify-center p-12">
-        <motion.div 
-          className="relative w-full max-w-lg"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          {/* Background glow */}
-          <div className="absolute -inset-4 bg-gradient-to-br from-primary/20 via-accent/10 to-primary/20 rounded-3xl blur-2xl" />
-          
-          {/* Content card */}
-          <div className="relative bg-card border rounded-2xl p-8 shadow-2xl">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-foreground">
-                Manage your bookings with ease
-              </h3>
-              <p className="mt-4 text-muted-foreground">
-                Join thousands of businesses using BookFlow to streamline their scheduling and grow their client base.
+              {/* Verified banner */}
+              {verified && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-5 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-3 text-sm text-emerald-700 flex items-center gap-2"
+                >
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                  Email verified! You can now sign in.
+                </motion.div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-medium text-stone-500 uppercase tracking-wider">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-300" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="satyamsingh@gmail.com"
+                      className={cn(
+                        'pl-10 h-12 rounded-xl border-stone-200 bg-stone-50/60 text-stone-900 placeholder:text-stone-400 focus:bg-white focus:border-stone-400 transition-all',
+                        errors.email && 'border-red-300 focus-visible:ring-red-400'
+                      )}
+                      {...register('email')}
+                    />
+                  </div>
+                  <AnimatePresence>
+                    {errors.email && (
+                      <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-xs text-red-500">
+                        {errors.email.message}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-xs font-medium text-stone-500 uppercase tracking-wider">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-300" />
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password"
+                      className={cn(
+                        'pl-10 pr-10 h-12 rounded-xl border-stone-200 bg-stone-50/60 text-stone-900 placeholder:text-stone-400 focus:bg-white focus:border-stone-400 transition-all',
+                        errors.password && 'border-red-300 focus-visible:ring-red-400'
+                      )}
+                      {...register('password')}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {errors.password && (
+                      <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-xs text-red-500">
+                        {errors.password.message}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Remember me + Forgot */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="remember" className="rounded border-stone-900/40 h-4.5 w-4.5 data-[state=checked]:bg-stone-900 data-[state=checked]:border-stone-900" />
+                    <Label htmlFor="remember" className="text-sm font-normal text-stone-500 cursor-pointer">
+                      Remember me
+                    </Label>
+                  </div>
+                  <Link href="#" className="text-sm text-stone-500 hover:text-stone-800 transition-colors">
+                    Forgot your password?
+                  </Link>
+                </div>
+
+                {/* API error */}
+                <AnimatePresence>
+                  {apiError && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"
+                    >
+                      {apiError}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Login button */}
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Button
+                    type="submit"
+                    className="w-full h-12 rounded-xl font-semibold text-white bg-stone-900 hover:bg-stone-800 transition-all duration-300 shadow-lg shadow-stone-900/20"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      'Login'
+                    )}
+                  </Button>
+                </motion.div>
+              </form>
+
+              {/* Divider */}
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-stone-200" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white px-3 text-stone-400">or</span>
+                </div>
+              </div>
+
+              {/* Google login */}
+              <div className="flex flex-col items-center">
+                <GoogleLogin
+                  onSuccess={async (credentialResponse) => {
+                    if (!credentialResponse.credential) return
+                    setIsLoading(true)
+                    setApiError(null)
+                    try {
+                      const user = await googleLogin(credentialResponse.credential)
+                      setCurrentUser(user)
+                      router.push(user.role === 'admin' ? '/admin' : '/services')
+                    } catch {
+                      setApiError('Google sign-in failed. Please try again.')
+                    } finally {
+                      setIsLoading(false)
+                    }
+                  }}
+                  onError={() => setApiError('Google sign-in failed. Please try again.')}
+                  size="large"
+                  width="340"
+                  text="continue_with"
+                  shape="pill"
+                  theme="outline"
+                />
+              </div>
+
+              {/* Sign up link */}
+              <p className="mt-5 text-center text-sm text-stone-500">
+                Don&apos;t have an account?{' '}
+                <Link href="/signup" className="text-stone-900 font-semibold hover:underline transition-colors">
+                  Sign up
+                </Link>
               </p>
             </div>
-
-            {/* Stats */}
-            <div className="mt-8 grid grid-cols-3 gap-4">
-              {[
-                { value: '50K+', label: 'Users' },
-                { value: '2M+', label: 'Bookings' },
-                { value: '98%', label: 'Satisfaction' },
-              ].map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                  className="text-center p-4 bg-muted/50 rounded-xl"
-                >
-                  <div className="text-xl font-bold text-foreground">{stat.value}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ const PUBLIC_COLS = `
   duration_minutes,
   price,
   category,
+  is_active,
   created_at,
   updated_at
 `.trim();
@@ -101,12 +102,12 @@ const ServiceModel = {
    * @param {string}  [data.createdBy] - admin user UUID
    * @returns {Promise<object>} The created service row
    */
-  async create({ name, description, duration_minutes, price, createdBy }) {
+  async create({ name, description, duration_minutes, price, category, createdBy }) {
     const { rows } = await query(
-      `INSERT INTO services (name, description, duration_minutes, price, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $5)
+      `INSERT INTO services (name, description, duration_minutes, price, category, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING ${PUBLIC_COLS}`,
-      [name, description ?? null, duration_minutes, price, createdBy ?? null]
+      [name, description ?? null, duration_minutes, price, category || '', createdBy ?? null]
     );
     return rows[0];
   },
@@ -120,17 +121,17 @@ const ServiceModel = {
    * @param {string} [updatedBy]  - admin user UUID
    * @returns {Promise<object|null>}
    */
-  async update(id, { name, description, duration_minutes, price }, updatedBy) {
+  async update(id, { name, description, duration_minutes, price, category }) {
     const { rows } = await query(
       `UPDATE services
        SET  name             = COALESCE($2, name),
             description      = COALESCE($3, description),
             duration_minutes = COALESCE($4, duration_minutes),
             price            = COALESCE($5, price),
-            updated_by       = $6
+            category         = COALESCE($6, category)
        WHERE id = $1 AND is_active = TRUE
        RETURNING ${PUBLIC_COLS}`,
-      [id, name ?? null, description ?? null, duration_minutes ?? null, price ?? null, updatedBy ?? null]
+      [id, name ?? null, description ?? null, duration_minutes ?? null, price ?? null, category ?? null]
     );
     return rows[0] ?? null;
   },
@@ -143,14 +144,13 @@ const ServiceModel = {
    * @param {string} [deletedBy] - admin user UUID
    * @returns {Promise<object|null>} The deleted row or null if not found
    */
-  async softDelete(id, deletedBy) {
+  async softDelete(id) {
     const { rows } = await query(
       `UPDATE services
-       SET  is_active  = FALSE,
-            updated_by = $2
+       SET  is_active = FALSE
        WHERE id = $1 AND is_active = TRUE
        RETURNING ${PUBLIC_COLS}`,
-      [id, deletedBy ?? null]
+      [id]
     );
     return rows[0] ?? null;
   },

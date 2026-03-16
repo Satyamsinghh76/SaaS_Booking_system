@@ -175,7 +175,10 @@ export const useBookingStore = create<BookingState>((set) => ({
 
   currentUser: null,
   setCurrentUser: (user) => set({ currentUser: user }),
-  clearAuth: () => set({ currentUser: null }),
+  clearAuth: () => {
+    if (typeof window !== 'undefined') localStorage.removeItem('access_token')
+    set({ currentUser: null })
+  },
 }))
 
 interface LegacyAuthUser {

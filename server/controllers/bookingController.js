@@ -24,6 +24,7 @@ const BookingModel        = require('../models/bookingModel');
 const NotificationService = require('../services/notificationService');
 const TwilioService       = require('../services/twilioService');
 const CalendarService     = require('../services/calendarService');
+const NotificationModel   = require('../models/notificationModel');
 const CalendarModel       = require('../models/calendarModel');
 const TokenModel          = require('../models/tokenModel');
 
@@ -104,6 +105,8 @@ const createBooking = async (req, res, next) => {
       endTime,
       priceSnapshot: service.price,
       notes,
+      customerName:  customer_name,
+      customerEmail: customer_email,
     });
 
     // Response first, then email (fire-and-forget)
@@ -129,12 +132,24 @@ const createBooking = async (req, res, next) => {
         const phone = customer_phone || fullBooking.user_phone;
         NotificationService.sendBookingConfirmed(fullBooking);
 
+        // Create in-app notification
+        NotificationModel.create({
+          userId: fullBooking.user_id,
+          title: 'Booking Created',
+          message: `Your booking for ${fullBooking.service_name} has been created successfully.`,
+          type: 'booking_confirmed',
+          link: '/dashboard/bookings',
+        }).catch(() => {});
+
         // Send SMS confirmation if phone number is available
         if (phone) {
+          console.log(`📱 [booking] Sending SMS confirmation to ${phone}`);
           TwilioService.sendBookingConfirmation(fullBooking, {
             id: fullBooking.user_id,
             phone_number: phone,
           }).catch((err) => console.error('[booking] SMS confirmation failed:', err.message));
+        } else {
+          console.log('[booking] No phone number provided — SMS skipped');
         }
       })
       .catch((err) => console.error('[booking] Failed to send confirmation email:', err.message));
@@ -221,6 +236,22 @@ const updateStatus = async (req, res, next) => {
     if (status === 'confirmed') {
       NotificationService.sendBookingConfirmed(updatedBooking);
       calendarSync(req.params.id, 'sync');
+      NotificationModel.create({
+        userId: updatedBooking.user_id,
+        title: 'Booking Confirmed',
+        message: `Your booking for ${updatedBooking.service_name} has been confirmed.`,
+        type: 'booking_confirmed',
+        link: '/dashboard/bookings',
+      }).catch(() => {});
+    }
+    if (status === 'completed') {
+      NotificationModel.create({
+        userId: updatedBooking.user_id,
+        title: 'Booking Completed',
+        message: `Your booking for ${updatedBooking.service_name} has been marked as completed.`,
+        type: 'booking_completed',
+        link: '/dashboard/bookings',
+      }).catch(() => {});
     }
     if (status === 'cancelled') {
       NotificationService.sendBookingCancelled(updatedBooking, {
@@ -228,6 +259,13 @@ const updateStatus = async (req, res, next) => {
         reason,
       });
       calendarSync(req.params.id, 'delete');
+      NotificationModel.create({
+        userId: updatedBooking.user_id,
+        title: 'Booking Cancelled',
+        message: `Your booking for ${updatedBooking.service_name} has been cancelled${req.user.role === 'admin' ? ' by admin' : ''}.`,
+        type: 'booking_cancelled',
+        link: '/dashboard/bookings',
+      }).catch(() => {});
     }
   } catch (err) {
     if (err.code === 'INVALID_TRANSITION') {
@@ -313,6 +351,66 @@ const getBookedSlots = async (req, res, next) => {
   }
 };
 
+/**
+ * PATCH /api/bookings/:id/reschedule
+ * Update a booking's date and time with overlap check.
+ */
+const rescheduleBooking = async (req, res, next) => {
+  try {
+    const { date, start_time } = req.body;
+    if (!date || !start_time) {
+      return res.status(400).json({ success: false, message: 'date and start_time are required.' });
+    }
+
+    const booking = await BookingModel.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+    if (req.user.role !== 'admin' && booking.user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      return res.status(422).json({ success: false, message: 'Only upcoming bookings can be rescheduled.' });
+    }
+
+    const { service, endTime } = await resolveServiceAndEndTime(booking.service_id, start_time);
+
+    // Check for overlapping bookings on the new date/time (exclude current booking)
+    const { rows: conflicts } = await query(
+      `SELECT id FROM bookings
+       WHERE service_id = $1
+         AND booking_date = $2
+         AND status NOT IN ('cancelled', 'no_show')
+         AND id != $3
+         AND start_time < $5
+         AND end_time > $4`,
+      [booking.service_id, date, req.params.id, start_time, endTime]
+    );
+
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot is already booked. Please choose a different time.',
+        code: 'SLOT_CONFLICT',
+      });
+    }
+
+    await query(
+      `UPDATE bookings SET booking_date = $1, start_time = $2, end_time = $3, updated_at = NOW()
+       WHERE id = $4`,
+      [date, start_time, endTime, req.params.id]
+    );
+
+    const updated = await BookingModel.findById(req.params.id);
+
+    res.json({ success: true, message: 'Booking rescheduled successfully.', data: updated });
+
+    calendarSync(req.params.id, 'sync');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   createBooking,
   getBookings,
@@ -322,4 +420,5 @@ module.exports = {
   updatePaymentStatus,
   getBookingEvents,
   getBookedSlots,
+  rescheduleBooking,
 };

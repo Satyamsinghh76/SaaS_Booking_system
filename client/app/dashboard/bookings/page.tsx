@@ -9,17 +9,20 @@ import {
   Clock,
   DollarSign,
   Search,
-  Filter,
   MoreHorizontal,
-  X,
   CalendarDays,
   AlertCircle,
   CheckCircle2,
-  CalendarPlus
+  CalendarPlus,
+  XCircle,
+  Loader2,
+  Briefcase,
+  RotateCcw,
+  Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,18 +37,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { type Booking } from '@/lib/store'
-import { StaggerWrapper, StaggerItem, AnimatedSkeleton } from '@/components/ui/motion'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
-import type { Booking as APIBooking, BookingStatus } from '@/lib/api/bookings'
+import type { Booking as APIBooking } from '@/lib/api/bookings'
 
 function formatTime12h(time24: string) {
   const [h, m] = time24.split(':').map(Number)
@@ -72,14 +67,31 @@ function mapAPIBooking(b: APIBooking): Booking {
   }
 }
 
+const tabs = [
+  { value: 'all', label: 'All', count: 0 },
+  { value: 'upcoming', label: 'Upcoming', count: 0 },
+  { value: 'completed', label: 'Completed', count: 0 },
+  { value: 'cancelled', label: 'Cancelled', count: 0 },
+]
+
+// Business hours for rescheduling
+const BUSINESS_HOURS = [
+  '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'
+]
+
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [cancellingBooking, setCancellingBooking] = useState<Booking | null>(null)
+  const [reschedulingBooking, setReschedulingBooking] = useState<Booking | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduleTime, setRescheduleTime] = useState('')
+  const [isRescheduling, setIsRescheduling] = useState(false)
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null)
 
   const loadBookings = useCallback(() => {
     setIsLoading(true)
@@ -90,9 +102,7 @@ export default function BookingsPage() {
       .finally(() => setIsLoading(false))
   }, [])
 
-  useEffect(() => {
-    loadBookings()
-  }, [loadBookings])
+  useEffect(() => { loadBookings() }, [loadBookings])
 
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = booking.serviceName.toLowerCase().includes(search.toLowerCase())
@@ -108,105 +118,147 @@ export default function BookingsPage() {
       setCancellingBooking(null)
       loadBookings()
     } catch {
-      // Keep dialog open; user can retry or dismiss
       setIsCancelling(false)
     }
+  }
+
+  const openReschedule = (booking: Booking) => {
+    setReschedulingBooking(booking)
+    setRescheduleDate(booking.date)
+    setRescheduleTime(booking.time)
+    setRescheduleError(null)
+  }
+
+  const handleReschedule = async () => {
+    if (!reschedulingBooking || !rescheduleDate || !rescheduleTime) return
+    setIsRescheduling(true)
+    setRescheduleError(null)
+    try {
+      await api.patch(`/api/bookings/${reschedulingBooking.id}/reschedule`, {
+        date: rescheduleDate,
+        start_time: rescheduleTime,
+      })
+      setReschedulingBooking(null)
+      loadBookings()
+    } catch (err: any) {
+      setRescheduleError(err.response?.data?.message || 'Failed to reschedule. Please try again.')
+    } finally {
+      setIsRescheduling(false)
+    }
+  }
+
+  // Compute tab counts
+  const tabCounts = {
+    all: bookings.length,
+    upcoming: bookings.filter(b => b.status === 'upcoming').length,
+    completed: bookings.filter(b => b.status === 'completed').length,
+    cancelled: bookings.filter(b => b.status === 'cancelled').length,
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <motion.h1 
-          className="text-2xl sm:text-3xl font-bold text-foreground"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          Your Bookings
-        </motion.h1>
-        <motion.p 
-          className="text-muted-foreground mt-1"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          Manage and track all your appointments.
-        </motion.p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
+            Your Bookings
+          </h1>
+          <p className="text-stone-500 mt-1 text-sm">
+            Manage and track all your appointments.
+          </p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Link href="/booking">
+            <Button className="bg-stone-900 hover:bg-stone-800 text-white rounded-xl h-10 px-5 shadow-lg shadow-stone-900/15">
+              <Plus className="mr-2 h-4 w-4" />
+              New booking
+            </Button>
+          </Link>
+        </motion.div>
       </div>
 
-      {/* Filters */}
-      <motion.div 
-        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4"
+      {/* Tab filters + Search */}
+      <motion.div
+        className="space-y-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.15 }}
       >
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* Tabs */}
+        <div className="flex items-center gap-1 bg-stone-100/60 p-1 rounded-xl w-fit">
+          {tabs.map((tab) => {
+            const count = tabCounts[tab.value as keyof typeof tabCounts]
+            const isActive = statusFilter === tab.value
+            return (
+              <button
+                key={tab.value}
+                onClick={() => setStatusFilter(tab.value)}
+                className={cn(
+                  'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                  isActive
+                    ? 'bg-white text-stone-900 shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700'
+                )}
+              >
+                {tab.label}
+                <span className={cn(
+                  'text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center',
+                  isActive ? 'bg-lime-100 text-lime-700' : 'bg-stone-200/60 text-stone-400'
+                )}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Search */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
           <Input
-            placeholder="Search bookings..."
+            placeholder="Search by service name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11 rounded-xl border-stone-200 bg-white shadow-sm"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="upcoming">Upcoming</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
       </motion.div>
 
       {/* Bookings list */}
       <AnimatePresence mode="wait">
         {isLoading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <AnimatedSkeleton key={i} className="h-[104px] rounded-xl" />
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-stone-100 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : error ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16 bg-card rounded-xl border space-y-3"
-          >
-            <AlertCircle className="h-10 w-10 text-destructive mx-auto" />
-            <p className="text-muted-foreground">{error}</p>
-            <Button variant="outline" onClick={loadBookings}>Retry</Button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white rounded-2xl border border-stone-200 shadow-sm space-y-3">
+            <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
+            <p className="text-stone-500">{error}</p>
+            <Button variant="outline" onClick={loadBookings} className="rounded-xl">Retry</Button>
           </motion.div>
         ) : filteredBookings.length > 0 ? (
-          <StaggerWrapper className="space-y-4">
-            {filteredBookings.map((booking) => (
-              <StaggerItem key={booking.id}>
-                <BookingCard 
-                  booking={booking} 
-                  onCancel={() => setCancellingBooking(booking)}
-                />
-              </StaggerItem>
-            ))}
-          </StaggerWrapper>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16 bg-card rounded-xl border"
-          >
-            <CalendarDays className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground">No bookings found</p>
-            {(search || statusFilter !== 'all') && (
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={() => { setSearch(''); setStatusFilter('all'); }}
+          <motion.div key={statusFilter} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            {filteredBookings.map((booking, index) => (
+              <motion.div
+                key={booking.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
               >
+                <BookingCard booking={booking} onCancel={() => setCancellingBooking(booking)} onReschedule={() => openReschedule(booking)} />
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white rounded-2xl border border-stone-200">
+            <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto mb-4">
+              <CalendarDays className="h-6 w-6 text-stone-400" />
+            </div>
+            <p className="text-stone-500 font-medium">No bookings found</p>
+            {(search || statusFilter !== 'all') && (
+              <Button variant="outline" className="mt-4 rounded-xl" onClick={() => { setSearch(''); setStatusFilter('all') }}>
                 Clear filters
               </Button>
             )}
@@ -214,12 +266,12 @@ export default function BookingsPage() {
         )}
       </AnimatePresence>
 
-      {/* Cancel confirmation dialog */}
+      {/* Cancel dialog */}
       <Dialog open={!!cancellingBooking} onOpenChange={() => !isCancelling && setCancellingBooking(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+            <DialogTitle className="flex items-center gap-2 text-stone-900">
+              <AlertCircle className="h-5 w-5 text-red-500" />
               Cancel Booking
             </DialogTitle>
             <DialogDescription>
@@ -227,89 +279,202 @@ export default function BookingsPage() {
             </DialogDescription>
           </DialogHeader>
           {cancellingBooking && (
-            <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
+            <div className="p-4 bg-stone-50 rounded-xl space-y-2.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Service</span>
-                <span className="font-medium">{cancellingBooking.serviceName}</span>
+                <span className="text-stone-400">Service</span>
+                <span className="font-medium text-stone-800">{cancellingBooking.serviceName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Date</span>
-                <span className="font-medium">
-                  {format(new Date(cancellingBooking.date), 'MMMM d, yyyy')}
-                </span>
+                <span className="text-stone-400">Date</span>
+                <span className="font-medium text-stone-800">{format(new Date(cancellingBooking.date + 'T00:00:00'), 'MMMM d, yyyy')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Time</span>
-                <span className="font-medium">{formatTime12h(cancellingBooking.time)}</span>
+                <span className="text-stone-400">Time</span>
+                <span className="font-medium text-stone-800">{formatTime12h(cancellingBooking.time)}</span>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCancellingBooking(null)} disabled={isCancelling}>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setCancellingBooking(null)}
+              disabled={isCancelling}
+              className="flex-1 rounded-xl border-stone-300 text-stone-700 hover:bg-stone-50"
+            >
               Keep Booking
             </Button>
-            <Button variant="destructive" onClick={handleCancelBooking} disabled={isCancelling}>
+            <Button
+              onClick={handleCancelBooking}
+              disabled={isCancelling}
+              className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm"
+            >
+              {isCancelling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
               {isCancelling ? 'Cancelling...' : 'Cancel Booking'}
             </Button>
-          </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule dialog */}
+      <Dialog open={!!reschedulingBooking} onOpenChange={() => !isRescheduling && setReschedulingBooking(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-stone-900">
+              <RotateCcw className="h-5 w-5 text-lime-600" />
+              Reschedule Booking
+            </DialogTitle>
+            <DialogDescription>
+              Pick a new date and time for your appointment.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reschedulingBooking && (
+            <div className="space-y-4">
+              {/* Current booking info */}
+              <div className="p-3 bg-stone-50 rounded-xl text-sm">
+                <p className="font-medium text-stone-800">{reschedulingBooking.serviceName}</p>
+                <p className="text-stone-400 text-xs mt-0.5">
+                  Currently: {format(new Date(reschedulingBooking.date + 'T00:00:00'), 'MMM d, yyyy')} at {formatTime12h(reschedulingBooking.time)}
+                </p>
+              </div>
+
+              {/* Date picker */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-stone-500 uppercase tracking-wider">New Date</Label>
+                <Input
+                  type="date"
+                  value={rescheduleDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="h-11 rounded-xl border-stone-200 bg-stone-50/60"
+                />
+              </div>
+
+              {/* Time picker */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-stone-500 uppercase tracking-wider">New Time</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {BUSINESS_HOURS.map((time) => (
+                    <button
+                      key={time}
+                      type="button"
+                      onClick={() => setRescheduleTime(time)}
+                      className={cn(
+                        'py-2.5 rounded-xl text-sm font-medium transition-all border',
+                        rescheduleTime === time
+                          ? 'bg-lime-500 text-white border-lime-500 shadow-sm'
+                          : 'bg-white text-stone-600 border-stone-200 hover:border-lime-300 hover:bg-lime-50'
+                      )}
+                    >
+                      {formatTime12h(time)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {rescheduleError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5">
+                  {rescheduleError}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setReschedulingBooking(null)}
+              disabled={isRescheduling}
+              className="flex-1 rounded-xl border-stone-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReschedule}
+              disabled={isRescheduling || !rescheduleDate || !rescheduleTime}
+              className="flex-1 rounded-xl bg-stone-900 hover:bg-stone-800 text-white shadow-sm"
+            >
+              {isRescheduling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+              {isRescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
 
-function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => void }) {
-  const statusStyles = {
-    upcoming: 'bg-primary/10 text-primary',
-    completed: 'bg-success/10 text-success',
-    cancelled: 'bg-destructive/10 text-destructive',
+// ═══════════════════════════════════════════════════════════════
+//  Booking Card
+// ═══════════════════════════════════════════════════════════════
+
+function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; onCancel: () => void; onReschedule: () => void }) {
+  const statusConfig = {
+    upcoming: { label: 'Upcoming', dot: 'bg-blue-500', bg: 'bg-blue-50 text-blue-700' },
+    completed: { label: 'Completed', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700' },
+    cancelled: { label: 'Cancelled', dot: 'bg-stone-400', bg: 'bg-stone-100 text-stone-500' },
   }
+  const cfg = statusConfig[booking.status]
+
+  const calendarUrl = (() => {
+    const dateClean = booking.date.replace(/-/g, '')
+    const [h, m] = booking.time.split(':').map(Number)
+    const start = `${dateClean}T${String(h).padStart(2, '0')}${String(m).padStart(2, '0')}00`
+    const endH = h + 1
+    const end = `${dateClean}T${String(endH).padStart(2, '0')}${String(m).padStart(2, '0')}00`
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(booking.serviceName + ' — BookFlow')}&dates=${start}/${end}&details=${encodeURIComponent('Booking via BookFlow\nService: ' + booking.serviceName + '\nPrice: $' + booking.price)}`
+  })()
 
   return (
-    <motion.div
-      className="p-6 bg-card rounded-xl border transition-all hover:shadow-lg hover:border-primary/20"
-      whileHover={{ x: 4 }}
-    >
+    <div className="group bg-white rounded-2xl border border-stone-200/80 p-5 shadow-sm hover:shadow-md hover:border-stone-300/80 transition-all duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         {/* Icon */}
-        <div className="p-3 bg-primary/10 rounded-lg shrink-0 w-fit">
-          <CalendarDays className="h-6 w-6 text-primary" />
+        <div className={cn(
+          'p-3 rounded-xl shrink-0 w-fit',
+          booking.status === 'upcoming' ? 'bg-lime-50' : booking.status === 'completed' ? 'bg-emerald-50' : 'bg-stone-100'
+        )}>
+          <Briefcase className={cn(
+            'h-5 w-5',
+            booking.status === 'upcoming' ? 'text-lime-600' : booking.status === 'completed' ? 'text-emerald-600' : 'text-stone-400'
+          )} />
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start sm:items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-foreground">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-stone-900 text-sm">
               {booking.serviceName}
             </h3>
-            <Badge
-              variant="secondary"
-              className={cn('capitalize border-0', statusStyles[booking.status])}
-            >
-              {booking.status}
-            </Badge>
+            {/* Status badge */}
+            <span className={cn('inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full', cfg.bg)}>
+              <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />
+              {cfg.label}
+            </span>
+            {/* Payment badge */}
             {booking.paymentStatus === 'paid' ? (
-              <Badge variant="secondary" className="bg-success/10 text-success border-0">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                <CheckCircle2 className="h-3 w-3" />
                 Paid
-              </Badge>
+              </span>
             ) : booking.status === 'upcoming' ? (
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 Unpaid
-              </Badge>
+              </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
+
+          <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-stone-500">
             <span className="flex items-center gap-1.5">
-              <Calendar className="h-4 w-4" />
-              {format(new Date(booking.date), 'MMM d, yyyy')}
+              <Calendar className="h-3.5 w-3.5" />
+              {format(new Date(booking.date + 'T00:00:00'), 'MMM d, yyyy')}
             </span>
             <span className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4" />
+              <Clock className="h-3.5 w-3.5" />
               {formatTime12h(booking.time)}
             </span>
-            <span className="flex items-center gap-1.5 font-medium text-foreground">
-              <DollarSign className="h-4 w-4" />
+            <span className="flex items-center gap-1.5 font-semibold text-stone-800">
+              <DollarSign className="h-3.5 w-3.5" />
               {booking.price}
             </span>
           </div>
@@ -321,40 +486,30 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
             <>
               {booking.paymentStatus !== 'paid' && (
                 <Link href={`/payment?bookingId=${booking.id}`}>
-                  <Button size="sm" className="bg-primary hover:bg-primary/90">
+                  <Button size="sm" className="bg-lime-500 hover:bg-lime-600 text-white rounded-lg shadow-sm shadow-lime-500/20 text-xs font-semibold h-8 px-3">
                     Pay Now
                   </Button>
                 </Link>
               )}
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={onReschedule} className="rounded-lg text-xs font-medium h-8 px-3 border-stone-200 text-stone-600 hover:text-stone-900">
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />
                 Reschedule
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-stone-400 hover:text-stone-700">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>View Details</DropdownMenuItem>
+                <DropdownMenuContent align="end" className="rounded-xl">
                   <DropdownMenuItem asChild>
-                    <a
-                      href={(() => {
-                        const dateClean = booking.date.replace(/-/g, '')
-                        const [h, m] = booking.time.split(':').map(Number)
-                        const start = `${dateClean}T${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}00`
-                        const endH = h + 1, endM = m
-                        const end = `${dateClean}T${String(endH).padStart(2,'0')}${String(endM).padStart(2,'0')}00`
-                        return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(booking.serviceName + ' — BookFlow')}&dates=${start}/${end}&details=${encodeURIComponent('Booking via BookFlow\nService: ' + booking.serviceName + '\nPrice: $' + booking.price)}`
-                      })()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <a href={calendarUrl} target="_blank" rel="noopener noreferrer">
                       <CalendarPlus className="h-4 w-4 mr-2" />
                       Add to Google Calendar
                     </a>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={onCancel}>
+                  <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={onCancel}>
+                    <XCircle className="h-4 w-4 mr-2" />
                     Cancel Booking
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -362,12 +517,14 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
             </>
           )}
           {booking.status === 'completed' && (
-            <Button variant="outline" size="sm">
-              Book Again
-            </Button>
+            <Link href="/booking">
+              <Button variant="outline" size="sm" className="rounded-lg text-xs font-medium h-8 px-3 border-stone-200">
+                Book Again
+              </Button>
+            </Link>
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }

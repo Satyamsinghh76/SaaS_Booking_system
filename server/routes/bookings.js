@@ -11,6 +11,7 @@ const {
   getBookingEvents,
   cancelBooking,
   getBookedSlots,
+  rescheduleBooking,
 } = require('../controllers/bookingController');
 
 const { authenticate, requireAdmin } = require('../middleware/auth');
@@ -31,6 +32,7 @@ router.get('/booked-slots', getBookedSlots);
 router.get('/', listBookingsRules, getBookings);
 router.get('/:id', idParamRules, getBookingById);
 router.patch('/:id/status', updateStatusRules, updateStatus);
+router.patch('/:id/reschedule', rescheduleBooking);
 router.delete('/:id', idParamRules, cancelBooking);
 router.patch('/:id/payment', ...requireAdmin, updatePaymentRules, updatePaymentStatus);
 router.get('/:id/events', ...requireAdmin, idParamRules, getBookingEvents);

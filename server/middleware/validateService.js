@@ -39,6 +39,11 @@ const createServiceRules = [
     .isFloat({ min: 0 }).withMessage('Price must be a non-negative number.')
     .toFloat(),
 
+  body('category')
+    .optional()
+    .trim()
+    .isLength({ max: 100 }).withMessage('Category must be 100 characters or fewer.'),
+
   validate,
 ];
 
@@ -66,6 +71,11 @@ const updateServiceRules = [
     .optional()
     .isFloat({ min: 0 }).withMessage('Price must be a non-negative number.')
     .toFloat(),
+
+  body('category')
+    .optional()
+    .trim()
+    .isLength({ max: 100 }).withMessage('Category must be 100 characters or fewer.'),
 
   validate,
 ];

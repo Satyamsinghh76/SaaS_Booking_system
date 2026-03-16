@@ -28,6 +28,8 @@ const calendarRoutes       = require('./routes/calendar');
 const adminRoutes          = require('./routes/admin');
 const recommendationRoutes = require('./routes/recommendations');
 const smsRoutes            = require('./routes/sms');
+const userSettingsRoutes   = require('./routes/userSettings');
+const supportRoutes        = require('./routes/support');
 
 const app = express();
 
@@ -171,6 +173,8 @@ app.use('/api/payments',      paymentRoutes);
 app.use('/api/calendar',      calendarRoutes);
 app.use('/api/admin',         adminRoutes);
 app.use('/api/sms',           smsRoutes);
+app.use('/api/user',          userSettingsRoutes);
+app.use('/api/support',       supportRoutes);
 
 // ── 404 fallback ─────────────────────────────────────────────
 app.use((req, res) => {

@@ -13,6 +13,8 @@ const BOOKING_COLS = `
   b.payment_status,
   b.price_snapshot,
   b.notes,
+  b.customer_name,
+  b.customer_email,
   b.cancelled_at,
   b.cancellation_reason,
   b.created_at,
@@ -89,7 +91,7 @@ const BookingModel = {
    *
    * Returns { booking } on success or throws with a structured error.
    */
-  async create({ userId, serviceId, date, startTime, endTime, priceSnapshot, notes }) {
+  async create({ userId, serviceId, date, startTime, endTime, priceSnapshot, notes, customerName, customerEmail }) {
     const client = await getClient();
 
     try {
@@ -115,15 +117,15 @@ const BookingModel = {
       // ── Insert booking ───────────────────────────────────
       const { rows } = await client.query(
         `INSERT INTO bookings
-           (user_id, service_id, booking_date, start_time, end_time, price_snapshot, notes, status, payment_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'unpaid')
+           (user_id, service_id, booking_date, start_time, end_time, price_snapshot, notes, customer_name, customer_email, status, payment_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', 'unpaid')
          RETURNING
            id, user_id, service_id,
            booking_date::TEXT  AS date,
            start_time::TEXT    AS start_time,
            end_time::TEXT      AS end_time,
-           status, payment_status, price_snapshot, notes, created_at`,
-        [userId, serviceId, date, startTime, endTime, priceSnapshot, notes ?? null]
+           status, payment_status, price_snapshot, notes, customer_name, customer_email, created_at`,
+        [userId, serviceId, date, startTime, endTime, priceSnapshot, notes ?? null, customerName ?? null, customerEmail ?? null]
       );
 
       const booking = rows[0];

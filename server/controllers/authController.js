@@ -11,6 +11,7 @@ const {
   revokeRefreshToken,
   revokeAllUserTokens,
 } = require('../config/jwt');
+const logger = require('../config/logger');
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -111,15 +112,56 @@ const login = async (req, res, next) => {
     }
 
     if (!user.email_verified) {
+      // For admin accounts, send a fresh verification email on every blocked attempt
+      if (user.role === 'admin') {
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(48).toString('base64url');
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        await UserModel.setVerificationToken(user.id, token, expires);
+
+        const { sendEmail, buildFromAddress } = require('../utils/emailUtil');
+        const serverUrl = `http://localhost:${process.env.PORT || 5000}`;
+        const verifyUrl = `${serverUrl}/api/auth/verify-email?token=${token}`;
+        sendEmail({
+          from: buildFromAddress(),
+          to: user.email,
+          subject: 'BookFlow Admin Verification',
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+              <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:24px 28px;border-radius:16px 16px 0 0;">
+                <h1 style="color:#fff;font-size:22px;margin:0;">Admin Login Verification</h1>
+              </div>
+              <div style="background:#fff;border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 16px 16px;">
+                <p style="color:#111827;font-size:16px;">Click below to verify and complete your admin login:</p>
+                <div style="text-align:center;margin:24px 0;">
+                  <a href="${verifyUrl}" style="display:inline-block;background:#6366f1;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600;font-size:15px;">Verify &amp; Login</a>
+                </div>
+                <p style="color:#6b7280;font-size:13px;">Or copy: <a href="${verifyUrl}" style="color:#6366f1;">${verifyUrl}</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin-top:16px;">This link expires in 24 hours.</p>
+              </div>
+            </div>
+          `,
+        }).catch((err) => logger.error('Failed to send admin verification email', { error: err.message }));
+
+        logger.info(`Admin verification email sent to ${user.email}`);
+      }
+
       return res.status(403).json({
         success: false,
-        message: 'Please verify your email before logging in. Check your inbox for the verification link.',
+        message: 'Please verify your email before logging in. A verification link has been sent to your inbox.',
         code: 'EMAIL_NOT_VERIFIED',
       });
     }
 
     // Strip password_hash and email_verified from response
     const { password_hash, email_verified, ...safeUser } = user;
+
+    // For admin users: reset email_verified so next login requires re-verification
+    if (user.role === 'admin') {
+      const { query } = require('../config/database');
+      query('UPDATE users SET email_verified = false WHERE id = $1', [user.id])
+        .catch((err) => logger.error('Failed to reset admin email_verified', { error: err.message }));
+    }
 
     const accessToken  = signAccessToken(safeUser);
     const refreshToken = signRefreshToken(safeUser);
@@ -302,8 +344,25 @@ const verifyEmail = async (req, res, next) => {
 
     console.log(`✅ [auth] Email verified for ${user.email}`);
 
-    // Redirect to login page with a success message
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+
+    // For admin users: auto-login on verification — issue tokens and redirect to /admin
+    if (user.role === 'admin') {
+      const { password_hash, email_verified, ...safeUser } = user;
+      const accessToken = signAccessToken(safeUser);
+      const refreshToken = signRefreshToken(safeUser);
+      await saveRefreshToken(safeUser.id, refreshToken);
+
+      // Reset email_verified so next login requires re-verification
+      const { query } = require('../config/database');
+      query('UPDATE users SET email_verified = false WHERE id = $1', [user.id]).catch(() => {});
+
+      res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
+      // Redirect to admin with access token in URL for the client to pick up
+      return res.redirect(`${clientUrl}/admin?access_token=${accessToken}`);
+    }
+
+    // Regular users: redirect to login page
     return res.redirect(`${clientUrl}/login?verified=true`);
   } catch (err) {
     next(err);

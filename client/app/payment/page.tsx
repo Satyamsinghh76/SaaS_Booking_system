@@ -82,17 +82,59 @@ function PaymentPageContent() {
   };
 
   const formatExpiry = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    if (v.length >= 3) {
-      return v.slice(0, 2) + '/' + v.slice(2, 4);
+    const v = value.replace(/[^0-9]/g, '').slice(0, 4);
+    if (v.length === 0) return '';
+    // Clamp month: first digit > 1 → prefix with 0
+    let month = v.slice(0, 2);
+    if (v.length === 1 && parseInt(v) > 1) {
+      month = '0' + v;
     }
-    return v;
+    if (v.length >= 2) {
+      const m = parseInt(month);
+      if (m > 12) month = '12';
+      if (m === 0) month = '01';
+    }
+    if (v.length <= 2) return month;
+    return month + '/' + v.slice(2, 4);
+  };
+
+  const formatCvc = (value: string) => {
+    return value.replace(/[^0-9]/g, '').slice(0, 3);
+  };
+
+  const validateExpiry = (): string | null => {
+    if (!expiry || expiry.length < 4) return 'Enter a valid expiry date (MM/YY).';
+    const parts = expiry.replace('/', '').match(/^(\d{2})(\d{2})$/);
+    if (!parts) return 'Enter a valid expiry date (MM/YY).';
+    const month = parseInt(parts[1]);
+    const year = parseInt(parts[2]) + 2000;
+    if (month < 1 || month > 12) return 'Month must be between 01 and 12.';
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    if (year < currentYear || (year === currentYear && month < currentMonth)) {
+      return 'Card has expired. Please use a valid card.';
+    }
+    return null;
   };
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!booking) return;
+
+    // Validate expiry
+    const expiryError = validateExpiry();
+    if (expiryError) {
+      setError(expiryError);
+      return;
+    }
+
+    // Validate CVC
+    if (cvc.length !== 3) {
+      setError('CVC must be exactly 3 digits.');
+      return;
+    }
 
     setProcessing(true);
     setError(null);
@@ -267,8 +309,8 @@ function PaymentPageContent() {
                       type="text"
                       placeholder="123"
                       value={cvc}
-                      onChange={(e) => setCvc(e.target.value.replace(/\D/g, ''))}
-                      maxLength={4}
+                      onChange={(e) => setCvc(formatCvc(e.target.value))}
+                      maxLength={3}
                       required
                       disabled={processing}
                     />
@@ -289,7 +331,7 @@ function PaymentPageContent() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={processing || !cardNumber || !expiry || !cvc || booking?.payment_status === 'paid'}
+                  disabled={processing || !cardNumber || expiry.length < 5 || cvc.length !== 3 || booking?.payment_status === 'paid'}
                 >
                   {processing ? (
                     <>
