@@ -552,10 +552,3 @@ THE SOFTWARE.
 
 ---
 
-<div align="center">
-
-**Built by [Satyam Singh](https://www.linkedin.com/in/satyam-singh-88988a279)**
-
-[GitHub](https://github.com/Satyamsinghh76/SaaS_Booking_system) · [LinkedIn](https://www.linkedin.com/in/satyam-singh-88988a279)
-
-</div>
