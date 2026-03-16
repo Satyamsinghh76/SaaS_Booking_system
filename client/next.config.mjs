@@ -1,10 +1,3 @@
-import { resolve, dirname } from 'path'
-import { fileURLToPath } from 'url'
-import { config } from 'dotenv'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-config({ path: resolve(__dirname, '../server/.env') })
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
