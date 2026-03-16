@@ -1,6 +1,55 @@
-# Root-level workspace ignores
+# ── Dependencies ────────────────────────────────────
 node_modules/
 
-# OS
+# ── Environment variables (NEVER commit these) ─────
+.env
+.env.*
+!.env.example
+!.env.render.example
+!.env.local.example
+!.env.production.example
+
+# ── Next.js build output ───────────────────────────
+client/.next/
+client/out/
+
+# ── Logs ───────────────────────────────────────────
+logs/
+*.log
+*.log.gz
+
+# ── Database files (SQLite legacy) ─────────────────
+*.db
+*.db-shm
+*.db-wal
+server/data/
+
+# ── OS files ───────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ── IDE / Editor ───────────────────────────────────
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ── Package manager ────────────────────────────────
+package-lock.json
+client/pnpm-lock.yaml
+
+# ── Build artifacts ────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+
+# ── Test coverage ──────────────────────────────────
+coverage/
+
+# ── Misc ───────────────────────────────────────────
+.vercel
+.turbo
