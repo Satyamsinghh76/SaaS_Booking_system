@@ -13,7 +13,7 @@ Manage appointments, services, payments, notifications, and analytics — all fr
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-[Live Demo](#) · [Report Bug](https://github.com/Satyamsinghh76/SaaS_Booking_system/issues) · [Request Feature](https://github.com/Satyamsinghh76/SaaS_Booking_system/issues)
+[Live Demo](https://booking-system-by-satyam.vercel.app) · [Report Bug](https://github.com/Satyamsinghh76/SaaS_Booking_system/issues) · [Request Feature](https://github.com/Satyamsinghh76/SaaS_Booking_system/issues)
 
 </div>
 
@@ -437,28 +437,65 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Deployment
 
-### Backend
+BookFlow is deployed and live:
 
-```bash
-# Build is not required — Node.js runs source directly
-npm run start:server
-```
+| Service | Platform | URL |
+|---|---|---|
+| **Frontend** | Vercel | [booking-system-by-satyam.vercel.app](https://booking-system-by-satyam.vercel.app) |
+| **Backend API** | Render | [booking-system-3rzn.onrender.com](https://booking-system-3rzn.onrender.com) |
+| **Database** | Supabase | PostgreSQL 17 (ap-northeast-2) |
 
-Set `NODE_ENV=production` and configure `DATABASE_URL` to your hosted PostgreSQL instance.
+### Deployment Process
 
-### Frontend
+#### 1. Database (Supabase)
 
-```bash
-cd client
-pnpm run build
-pnpm run start
-```
+1. Create a project on [supabase.com](https://supabase.com)
+2. Run `server/db/schema.sql` in the SQL Editor — the schema uses `IF NOT EXISTS` and `ON CONFLICT` so it's safe to re-run
+3. Copy the connection string from Settings → Database → URI
 
-Set `NEXT_PUBLIC_API_URL` to your deployed API URL.
+#### 2. Backend (Render)
 
-### Database
+1. Create a **Web Service** on [render.com](https://render.com) connected to the GitHub repo
+2. Set **Root Directory** to `server`
+3. Set **Build Command** to `npm install` and **Start Command** to `node server.js`
+4. Add environment variables:
 
-Run `server/db/schema.sql` against your production PostgreSQL database. The schema uses `IF NOT EXISTS` and `ON CONFLICT` so it's safe to re-run.
+| Variable | Description |
+|---|---|
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | Supabase connection string |
+| `JWT_SECRET` | Random 32+ char string (`openssl rand -hex 32`) |
+| `JWT_REFRESH_SECRET` | Different random 32+ char string |
+| `CORS_ORIGIN` | Vercel frontend URL |
+| `CLIENT_URL` | Vercel frontend URL |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Gmail SMTP with [App Password](https://myaccount.google.com/apppasswords) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
+| `NEXT_PUBLIC_API_URL` | Render backend URL (used in email links) |
+| `STRIPE_*` | *(Optional)* Stripe keys for live payments |
+| `TWILIO_*` | *(Optional)* Twilio credentials for SMS |
+
+5. Verify: `GET /health` should return `{"status":"ok"}`
+
+#### 3. Frontend (Vercel)
+
+1. Import the GitHub repo on [vercel.com](https://vercel.com)
+2. Set **Root Directory** to `client`
+3. Add environment variables:
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Render backend URL (e.g. `https://your-api.onrender.com`) |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth Client ID |
+
+4. Deploy — Vercel auto-detects Next.js and builds with `pnpm`
+
+#### 4. Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → Credentials → OAuth 2.0 Client ID
+2. Add **Authorized JavaScript Origins**: your Vercel URL + `http://localhost:3000`
+3. Add **Authorized Redirect URIs**: your Render URL + `/api/calendar/oauth/callback`
+
+> **Note:** Render free tier spins down after 15 min of inactivity — the first request takes ~30s to cold start. Paid plan ($7/mo) keeps it always on.
 
 ---
 
