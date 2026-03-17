@@ -47,10 +47,16 @@ const buildTransportOptions = async () => {
     console.warn(`⚠️ [email] IPv4 resolution failed for ${hostname}, using hostname directly: ${err.message}`);
   }
 
+  const port = parseInt(process.env.SMTP_PORT || '465', 10);
+  // Auto-detect: port 465 always uses direct TLS; override with SMTP_SECURE if set
+  const secure = process.env.SMTP_SECURE != null
+    ? process.env.SMTP_SECURE === 'true'
+    : port === 465;
+
   return {
     host,
-    port:   parseInt(process.env.SMTP_PORT || '587', 10),
-    secure: process.env.SMTP_SECURE === 'true', // true = TLS, false = STARTTLS
+    port,
+    secure,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
