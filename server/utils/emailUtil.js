@@ -16,35 +16,56 @@
 'use strict';
 
 const dns        = require('dns');
+const { promisify } = require('util');
 const nodemailer = require('nodemailer');
 
-// Force IPv4 globally — Render lacks IPv6 egress, causing ENETUNREACH on Gmail SMTP
+// Belt-and-suspenders: also set global default (helps other libraries)
 dns.setDefaultResultOrder('ipv4first');
+
+const dnsLookup = promisify(dns.lookup);
 
 // ── Transporter singleton ─────────────────────────────────────
 let _transporter = null;
 
 /**
  * Build the Nodemailer transport options from environment variables.
- * @returns {import('nodemailer').TransportOptions}
+ * Explicitly resolves the SMTP host to an IPv4 address because Render
+ * lacks IPv6 egress and dns.setDefaultResultOrder is not reliable there.
+ *
+ * @returns {Promise<import('nodemailer').TransportOptions>}
  */
-const buildTransportOptions = () => ({
-  host:   process.env.SMTP_HOST || 'smtp.gmail.com',
-  port:   parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_SECURE === 'true', // true = TLS, false = STARTTLS
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  // Connection timeouts (Render cold starts can be slow)
-  connectionTimeout: 10000,
-  greetingTimeout:   10000,
-  socketTimeout:     15000,
-  // Graceful degradation: don't fail on self-signed certs in dev
-  ...(process.env.NODE_ENV !== 'production' && {
-    tls: { rejectUnauthorized: false },
-  }),
-});
+const buildTransportOptions = async () => {
+  const hostname = process.env.SMTP_HOST || 'smtp.gmail.com';
+
+  // Resolve to IPv4 explicitly — Render lacks IPv6 egress
+  let host = hostname;
+  try {
+    const result = await dnsLookup(hostname, { family: 4 });
+    host = result.address;
+    console.log(`📧 [email] Resolved ${hostname} → ${host} (IPv4)`);
+  } catch (err) {
+    console.warn(`⚠️ [email] IPv4 resolution failed for ${hostname}, using hostname directly: ${err.message}`);
+  }
+
+  return {
+    host,
+    port:   parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true', // true = TLS, false = STARTTLS
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    tls: {
+      // Required for TLS cert validation when connecting to a resolved IP
+      servername: hostname,
+      ...(process.env.NODE_ENV !== 'production' && { rejectUnauthorized: false }),
+    },
+    // Connection timeouts (Render cold starts can be slow)
+    connectionTimeout: 10000,
+    greetingTimeout:   10000,
+    socketTimeout:     15000,
+  };
+};
 
 /**
  * Lazily initialise the transporter.
@@ -80,7 +101,7 @@ const getTransporter = async () => {
     throw new Error('[email] SMTP_USER and SMTP_PASS must be set in production.');
   }
 
-  _transporter = nodemailer.createTransport(buildTransportOptions());
+  _transporter = nodemailer.createTransport(await buildTransportOptions());
   return _transporter;
 };
 
