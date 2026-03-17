@@ -69,8 +69,8 @@ The platform supports two user roles — **customers** who browse services and b
         │          │          │          │
         ▼          ▼          ▼          ▼
 ┌──────────┐ ┌──────────┐ ┌────────┐ ┌──────────────┐
-│PostgreSQL│ │  Gmail   │ │ Twilio │ │ Google APIs   │
-│ Database │ │  SMTP    │ │  SMS   │ │ OAuth + Cal   │
+│PostgreSQL│ │  Brevo   │ │ Twilio │ │ Google APIs   │
+│ Database │ │HTTP Email│ │  SMS   │ │ OAuth + Cal   │
 └──────────┘ └──────────┘ └────────┘ └──────────────┘
 ```
 
@@ -113,6 +113,7 @@ The platform supports two user roles — **customers** who browse services and b
 | JWT + Refresh Tokens | Access token rotation with httpOnly refresh cookies |
 | Graceful Shutdown | 30s drain period with DB pool cleanup |
 | Health Checks | `/health` (liveness) and `/ready` (readiness with DB check) |
+| Email Delivery | Brevo HTTP API (production) with SMTP fallback (dev) |
 | Email Support | Contact form sends HTML emails to admin inbox |
 | Live Chat | Tawk.to integration across all pages |
 | Blog | Full articles with slug-based routing |
@@ -132,7 +133,8 @@ The platform supports two user roles — **customers** who browse services and b
 | pg (node-postgres) | Database driver with connection pooling |
 | jsonwebtoken | JWT access and refresh tokens |
 | bcryptjs | Password hashing (12 salt rounds) |
-| Nodemailer | Email via Gmail SMTP |
+| Brevo API | Transactional email via HTTP (production) |
+| Nodemailer | Email via SMTP (local development fallback) |
 | Twilio | SMS confirmations and reminders |
 | googleapis | Google Calendar sync |
 | Stripe SDK | Payment processing (demo mode) |
@@ -333,7 +335,7 @@ PostgreSQL 14+ with `btree_gist` extension for overlap constraints.
 - **Node.js** 20 or higher
 - **PostgreSQL** 14 or higher
 - **npm** and **pnpm**
-- Gmail account with [App Password](https://support.google.com/accounts/answer/185833) for SMTP
+- [Brevo](https://brevo.com) account for production email (free 300/day), or Gmail [App Password](https://support.google.com/accounts/answer/185833) for local SMTP
 - Google Cloud project with OAuth credentials (for Google sign-in)
 
 ### Installation
@@ -377,12 +379,17 @@ JWT_REFRESH_SECRET=your-refresh-secret-min-32-chars
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
-# ── Email (Gmail SMTP) ─────────────────────────────
+# ── Email ──────────────────────────────────────────
+# Production: use Brevo HTTP API (recommended for cloud hosting)
+BREVO_API_KEY=xkeysib-your-brevo-api-key
+EMAIL_FROM=BookFlow <your-verified-sender@gmail.com>
+
+# Local dev: use Gmail SMTP (fallback when no BREVO_API_KEY)
 SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
+SMTP_PORT=465
+SMTP_SECURE=true
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-gmail-app-password
-EMAIL_FROM=BookFlow <your-email@gmail.com>
 
 # ── Google OAuth ────────────────────────────────────
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -468,7 +475,8 @@ BookFlow is deployed and live:
 | `JWT_REFRESH_SECRET` | Different random 32+ char string |
 | `CORS_ORIGIN` | Vercel frontend URL |
 | `CLIENT_URL` | Vercel frontend URL |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Gmail SMTP with [App Password](https://myaccount.google.com/apppasswords) |
+| `BREVO_API_KEY` | Brevo API key for email delivery ([brevo.com](https://brevo.com)) |
+| `EMAIL_FROM` | Verified sender address (e.g. `BookFlow <you@gmail.com>`) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
 | `NEXT_PUBLIC_API_URL` | Render backend URL (used in email links) |
 | `STRIPE_*` | *(Optional)* Stripe keys for live payments |
@@ -496,6 +504,8 @@ BookFlow is deployed and live:
 3. Add **Authorized Redirect URIs**: your Render URL + `/api/calendar/oauth/callback`
 
 > **Note:** Render free tier spins down after 15 min of inactivity — the first request takes ~30s to cold start. Paid plan ($7/mo) keeps it always on.
+>
+> **Email:** Direct SMTP (Gmail) is blocked from most cloud platforms. BookFlow uses [Brevo's HTTP API](https://brevo.com) in production — free 300 emails/day, only requires sender email verification (no domain setup needed).
 
 ---
 
