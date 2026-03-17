@@ -4,9 +4,10 @@
  * Centralises all email-sending logic.
  *
  * Transport strategy (checked in order):
- *   1. RESEND_API_KEY set  → Resend HTTP API (works on every cloud platform)
- *   2. SMTP_USER/PASS set  → Nodemailer SMTP (good for local dev)
- *   3. Neither (dev only)  → Ethereal test account (preview URL in logs)
+ *   1. BREVO_API_KEY set   → Brevo HTTP API (free 300/day, email-verified sender)
+ *   2. RESEND_API_KEY set  → Resend HTTP API (requires domain verification)
+ *   3. SMTP_USER/PASS set  → Nodemailer SMTP (good for local dev)
+ *   4. Neither (dev only)  → Ethereal test account (preview URL in logs)
  */
 
 'use strict';
@@ -19,24 +20,74 @@ dns.setDefaultResultOrder('ipv4first');
 const dnsLookup = promisify(dns.lookup);
 
 // ── Provider detection ───────────────────────────────────────────
-const useResend = () => !!process.env.RESEND_API_KEY;
+const getProvider = () => {
+  if (process.env.BREVO_API_KEY)  return 'brevo';
+  if (process.env.RESEND_API_KEY) return 'resend';
+  return 'smtp';
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  Brevo HTTP API transport
+// ══════════════════════════════════════════════════════════════════
+
+/**
+ * Parse "Name <email>" or plain email into { name, email }.
+ */
+const parseAddress = (addr) => {
+  const match = String(addr).match(/^["']?(.+?)["']?\s*<(.+?)>$/);
+  if (match) return { name: match[1].trim(), email: match[2].trim() };
+  return { name: undefined, email: String(addr).trim() };
+};
+
+const sendViaBrevo = async (envelope) => {
+  const to = [].concat(envelope.to).map((addr) => {
+    const parsed = parseAddress(addr);
+    return parsed.name ? { email: parsed.email, name: parsed.name } : { email: parsed.email };
+  });
+  const sender = parseAddress(envelope.from);
+
+  const payload = {
+    sender: { name: sender.name || 'BookFlow', email: sender.email },
+    to,
+    subject: envelope.subject,
+  };
+  if (envelope.html) payload.htmlContent = envelope.html;
+  if (envelope.text) payload.textContent = envelope.text;
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key':      process.env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const err = new Error(data.message || `Brevo API error ${res.status}`);
+    err.statusCode = res.status;
+    throw err;
+  }
+
+  const recipients = to.map((t) => t.email).join(', ');
+  console.log(
+    `✅ [email] Sent "${envelope.subject}" to ${recipients}` +
+    ` via Brevo | messageId: ${data.messageId}`
+  );
+
+  return { messageId: data.messageId, previewUrl: null, accepted: to.map((t) => t.email), rejected: [] };
+};
 
 // ══════════════════════════════════════════════════════════════════
 //  Resend HTTP API transport
 // ══════════════════════════════════════════════════════════════════
 
-/**
- * Send a single email via Resend's REST API (HTTPS, port 443).
- * No SMTP needed — works even when cloud providers block SMTP ports.
- */
 const sendViaResend = async (envelope) => {
   const to = [].concat(envelope.to);
 
-  const payload = {
-    from: envelope.from,
-    to,
-    subject: envelope.subject,
-  };
+  const payload = { from: envelope.from, to, subject: envelope.subject };
   if (envelope.html) payload.html = envelope.html;
   if (envelope.text) payload.text = envelope.text;
 
@@ -122,7 +173,7 @@ const getTransporter = async () => {
   }
 
   if (!smtpConfigured) {
-    throw new Error('[email] SMTP_USER/SMTP_PASS must be set in production (or use RESEND_API_KEY).');
+    throw new Error('[email] Set BREVO_API_KEY, RESEND_API_KEY, or SMTP_USER/SMTP_PASS in production.');
   }
 
   _transporter = nodemailer.createTransport(await buildTransportOptions());
@@ -170,15 +221,15 @@ const sendEmail = async (mailOptions, opts = {}) => {
   const retryDelayMs = opts.retryDelayMs ?? parseInt(process.env.EMAIL_RETRY_DELAY_MS || '2000', 10);
 
   const envelope = { from: buildFromAddress(), ...mailOptions };
-  const via      = useResend() ? 'resend' : 'smtp';
+  const via      = getProvider();
 
   let lastError;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return via === 'resend'
-        ? await sendViaResend(envelope)
-        : await sendViaSmtp(envelope);
+      if (via === 'brevo')  return await sendViaBrevo(envelope);
+      if (via === 'resend') return await sendViaResend(envelope);
+      return await sendViaSmtp(envelope);
     } catch (err) {
       lastError = err;
 
@@ -195,7 +246,7 @@ const sendEmail = async (mailOptions, opts = {}) => {
       }
 
       // Don't retry client errors (bad API key, validation errors)
-      if (via === 'resend' && err.statusCode && err.statusCode < 500) break;
+      if ((via === 'resend' || via === 'brevo') && err.statusCode && err.statusCode < 500) break;
 
       if (attempt === maxRetries) break;
 
@@ -215,8 +266,9 @@ const sendEmail = async (mailOptions, opts = {}) => {
  * Verify email connectivity at startup.
  */
 const verifyConnection = async () => {
-  if (useResend()) {
-    console.log('✅ [email] Using Resend HTTP API — SMTP verification skipped');
+  const provider = getProvider();
+  if (provider !== 'smtp') {
+    console.log(`✅ [email] Using ${provider.toUpperCase()} HTTP API — SMTP verification skipped`);
     return true;
   }
   try {
