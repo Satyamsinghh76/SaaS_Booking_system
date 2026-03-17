@@ -32,6 +32,8 @@ const buildTransportOptions = () => ({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // Force IPv4 — Render free-tier lacks IPv6 egress, causing ENETUNREACH on Gmail
+  dnsOptions: { family: 4 },
   // Graceful degradation: don't fail on self-signed certs in dev
   ...(process.env.NODE_ENV !== 'production' && {
     tls: { rejectUnauthorized: false },
