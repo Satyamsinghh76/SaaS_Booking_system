@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Navbar } from '@/components/navbar'
-import { NotificationBell } from '@/components/dashboard/notification-bell'
 import { useBookingStore } from '@/lib/store'
 import { getMe } from '@/lib/api/auth'
 
@@ -42,10 +41,6 @@ export default function DashboardLayout({
         className="min-h-screen pt-20"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-          {/* Notification bell — fixed top-right, below navbar */}
-          <div className="flex justify-end mb-2">
-            <NotificationBell />
-          </div>
           {children}
         </div>
       </motion.main>

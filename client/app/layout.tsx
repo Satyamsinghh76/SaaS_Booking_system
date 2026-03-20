@@ -18,7 +18,7 @@ const themeInitScript = `
 (function() {
   try {
     var stored = localStorage.getItem('theme');
-    var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var theme = stored || 'light';
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -39,7 +39,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="bg-[#fafaf9] text-stone-800 dark:bg-stone-950 dark:text-stone-200 transition-colors duration-300">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="theme">
           <GoogleAuthProvider>
             {children}
             <TawkChat />

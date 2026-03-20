@@ -135,7 +135,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
             {getGreeting()}, {firstName}
           </h1>
           <p className="text-stone-500 mt-1 text-sm">
@@ -188,7 +188,7 @@ export default function DashboardPage() {
         ].map((card, i) => (
           <motion.div
             key={card.label}
-            className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200/80 dark:border-white/10 p-6 shadow-sm hover:shadow-md transition-shadow"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.05 }}
@@ -198,7 +198,7 @@ export default function DashboardPage() {
                 <card.icon className={cn('h-5 w-5', card.iconColor)} />
               </div>
             </div>
-            <p className="text-2xl font-extrabold text-stone-900">{card.value}</p>
+            <p className="text-2xl font-extrabold text-stone-900 dark:text-stone-100">{card.value}</p>
             <p className="text-sm text-stone-500 mt-0.5">{card.label}</p>
           </motion.div>
         ))}
@@ -208,14 +208,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Revenue Chart */}
         <motion.div
-          className="lg:col-span-2 bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm"
+          className="lg:col-span-2 bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200/80 dark:border-white/10 p-6 shadow-sm"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-bold text-stone-900">Booking Overview</h2>
+              <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100">Booking Overview</h2>
               <p className="text-sm text-stone-500 mt-0.5">Revenue and bookings over time</p>
             </div>
             <div className="flex items-center gap-4 text-xs">
@@ -249,45 +249,45 @@ export default function DashboardPage() {
 
         {/* Quick Actions + Activity */}
         <motion.div
-          className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-sm flex flex-col"
+          className="bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200/80 dark:border-white/10 p-6 shadow-sm flex flex-col"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <h2 className="text-lg font-bold text-stone-900 mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 mb-4">Quick Actions</h2>
 
           <div className="space-y-2 mb-6">
             <Link href="/booking" className="block">
-              <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-colors group cursor-pointer">
+              <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors group cursor-pointer">
                 <div className="p-2 bg-lime-50 rounded-lg">
                   <Calendar className="h-4 w-4 text-lime-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-stone-800">Book appointment</p>
+                  <p className="text-sm font-medium text-stone-800 dark:text-stone-200">Book appointment</p>
                   <p className="text-xs text-stone-400">Schedule a new session</p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 text-stone-300 group-hover:text-stone-500 transition-colors" />
               </div>
             </Link>
             <Link href="/services" className="block">
-              <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-colors group cursor-pointer">
+              <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors group cursor-pointer">
                 <div className="p-2 bg-blue-50 rounded-lg">
                   <CalendarDays className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-stone-800">Browse services</p>
+                  <p className="text-sm font-medium text-stone-800 dark:text-stone-200">Browse services</p>
                   <p className="text-xs text-stone-400">Explore available options</p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 text-stone-300 group-hover:text-stone-500 transition-colors" />
               </div>
             </Link>
             <Link href="/dashboard/bookings" className="block">
-              <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-colors group cursor-pointer">
+              <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors group cursor-pointer">
                 <div className="p-2 bg-violet-50 rounded-lg">
                   <Clock className="h-4 w-4 text-violet-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-stone-800">My bookings</p>
+                  <p className="text-sm font-medium text-stone-800 dark:text-stone-200">My bookings</p>
                   <p className="text-xs text-stone-400">View and manage all</p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 text-stone-300 group-hover:text-stone-500 transition-colors" />
@@ -296,7 +296,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Recent activity */}
-          <h3 className="text-sm font-semibold text-stone-900 mb-3 pt-4 border-t">Recent Activity</h3>
+          <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-3 pt-4 border-t">Recent Activity</h3>
           <div className="space-y-3 flex-1">
             {recentBookings.slice(0, 3).map((booking) => {
               const statusConfig: Record<string, { bg: string; icon: typeof CheckCircle2; color: string; label: string }> = {
@@ -314,7 +314,7 @@ export default function DashboardPage() {
                     <StatusIcon className={cn('h-3.5 w-3.5', cfg.color)} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-stone-800 truncate">{booking.serviceName}</p>
+                    <p className="text-sm text-stone-800 dark:text-stone-200 truncate">{booking.serviceName}</p>
                     <p className="text-xs text-stone-400">{format(new Date(booking.date + 'T00:00:00'), 'MMM d')} · {cfg.label} · {payLabel}</p>
                   </div>
                 </div>
@@ -329,15 +329,15 @@ export default function DashboardPage() {
 
       {/* ── Upcoming Bookings Table ───────────────────────────── */}
       <motion.div
-        className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden"
+        className="bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200/80 dark:border-white/10 shadow-sm overflow-hidden"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
       >
         <div className="flex items-center justify-between p-6 pb-4">
-          <h2 className="text-lg font-bold text-stone-900">Upcoming Bookings</h2>
+          <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100">Upcoming Bookings</h2>
           <Link href="/dashboard/bookings">
-            <Button variant="ghost" size="sm" className="text-stone-500 hover:text-stone-800">
+            <Button variant="ghost" size="sm" className="text-stone-500 hover:text-stone-800 dark:text-stone-200">
               View all
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Button>
@@ -367,7 +367,7 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 + index * 0.05 }}
-                  className="grid grid-cols-12 gap-4 items-center px-4 py-3.5 rounded-xl hover:bg-stone-50 transition-colors group"
+                  className="grid grid-cols-12 gap-4 items-center px-4 py-3.5 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors group"
                 >
                   {/* Service */}
                   <div className="col-span-5 flex items-center gap-3 min-w-0">
@@ -375,7 +375,7 @@ export default function DashboardPage() {
                       <CalendarDays className="h-4 w-4 text-lime-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-stone-800 text-sm truncate">{booking.serviceName}</p>
+                      <p className="font-medium text-stone-800 dark:text-stone-200 text-sm truncate">{booking.serviceName}</p>
                       <p className="text-xs text-stone-400 sm:hidden">
                         {format(new Date(booking.date + 'T00:00:00'), 'MMM d')} at {formatTime12h(booking.time)}
                       </p>
@@ -384,7 +384,7 @@ export default function DashboardPage() {
 
                   {/* Date */}
                   <div className="col-span-3 hidden sm:block">
-                    <p className="text-sm text-stone-700">{format(new Date(booking.date + 'T00:00:00'), 'MMM d, yyyy')}</p>
+                    <p className="text-sm text-stone-700 dark:text-stone-300">{format(new Date(booking.date + 'T00:00:00'), 'MMM d, yyyy')}</p>
                     <p className="text-xs text-stone-400">{formatTime12h(booking.time)}</p>
                   </div>
 
@@ -405,7 +405,7 @@ export default function DashboardPage() {
 
                   {/* Amount */}
                   <div className="col-span-2 text-right">
-                    <p className="font-semibold text-stone-900 text-sm">${booking.price}</p>
+                    <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">${booking.price}</p>
                     {booking.paymentStatus !== 'paid' && (
                       <Link href={`/payment?bookingId=${booking.id}`}>
                         <span className="text-xs text-lime-600 hover:text-lime-700 font-medium cursor-pointer">Pay now</span>
