@@ -18,11 +18,15 @@
  *
  * • "Active" bookings = confirmed | completed
  *   "All non-cancelled" = pending | confirmed | completed | no_show
+ *
+ * • Seed-account isolation: when seedOnly is true only seed-user
+ *   data is returned; when false seed data is excluded.
  */
 
 'use strict';
 
 const { query } = require('../config/database');
+const { seedFilter } = require('./seedAccounts');
 
 // ── Date range helper ─────────────────────────────────────────
 
@@ -66,8 +70,10 @@ const dateRangeClause = (from, to, col, startIdx = 1) => {
  * Returns one row: total_bookings, active_bookings, cancelled_bookings,
  * total_revenue, avg_booking_value, total_users, active_users.
  */
-const getOverview = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getOverview = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `SELECT
@@ -103,7 +109,7 @@ const getOverview = async ({ from, to } = {}) => {
        )::NUMERIC(12,2)                                              AS total_refunded
 
      FROM bookings b
-     WHERE 1=1 ${clause}`,
+     WHERE 1=1 ${dateCl} ${seedCl}`,
     values
   );
 
@@ -113,16 +119,27 @@ const getOverview = async ({ from, to } = {}) => {
 /**
  * Count of total and new users (registered within the period).
  */
-const getUserStats = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'u.created_at::DATE', 1);
+const getUserStats = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'u.created_at::DATE', 1);
+  const { clause: seedCl, values: seedVals, nextIdx: si } = seedFilter(seedOnly, di, 'u.id');
+  const values = [...dateVals, ...seedVals];
+
+  // The total_users subquery must also be seed-filtered.
+  // Reuse the same $N parameter (SEED_EMAILS) that seedFilter already placed.
+  let totalUsersSeed = '';
+  if (seedOnly === true) {
+    totalUsersSeed = `WHERE id IN (SELECT id FROM users WHERE email = ANY($${di}::TEXT[]))`;
+  } else if (seedOnly === false) {
+    totalUsersSeed = `WHERE id NOT IN (SELECT id FROM users WHERE email = ANY($${di}::TEXT[]))`;
+  }
 
   const { rows } = await query(
     `SELECT
-       (SELECT COUNT(*) FROM users)                                   AS total_users,
+       (SELECT COUNT(*) FROM users ${totalUsersSeed})               AS total_users,
        COUNT(u.id)                                                    AS new_users,
        COUNT(u.id) FILTER (WHERE u.is_active = TRUE)                 AS active_users_in_period
      FROM users u
-     WHERE 1=1 ${clause}`,
+     WHERE 1=1 ${dateCl} ${seedCl}`,
     values
   );
 
@@ -137,8 +154,10 @@ const getUserStats = async ({ from, to } = {}) => {
  * Daily revenue for the given date range.
  * Returns rows: { date, bookings, revenue }
  */
-const getRevenueByDay = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getRevenueByDay = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `SELECT
@@ -148,7 +167,7 @@ const getRevenueByDay = async ({ from, to } = {}) => {
      FROM bookings b
      WHERE b.status IN ('confirmed','completed')
        AND b.payment_status = 'paid'
-       ${clause}
+       ${dateCl} ${seedCl}
      GROUP  BY b.booking_date
      ORDER  BY b.booking_date ASC`,
     values
@@ -161,8 +180,10 @@ const getRevenueByDay = async ({ from, to } = {}) => {
  * Monthly revenue summary.
  * Returns rows: { month (YYYY-MM), bookings, revenue, avg_value }
  */
-const getRevenueByMonth = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getRevenueByMonth = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `SELECT
@@ -173,7 +194,7 @@ const getRevenueByMonth = async ({ from, to } = {}) => {
      FROM bookings b
      WHERE b.status IN ('confirmed','completed')
        AND b.payment_status = 'paid'
-       ${clause}
+       ${dateCl} ${seedCl}
      GROUP  BY TO_CHAR(b.booking_date, 'YYYY-MM')
      ORDER  BY month ASC`,
     values
@@ -193,8 +214,9 @@ const getRevenueByMonth = async ({ from, to } = {}) => {
  * Columns: service_id, service_name, total_bookings, completed_bookings,
  *          cancellation_rate_pct, total_revenue, avg_price
  */
-const getPopularServices = async ({ from, to, limit = 10 } = {}) => {
-  const { clause, values, nextIdx } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getPopularServices = async ({ from, to, seedOnly, limit = 10 } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals, nextIdx: si } = seedFilter(seedOnly, di);
 
   const { rows } = await query(
     `SELECT
@@ -232,11 +254,11 @@ const getPopularServices = async ({ from, to, limit = 10 } = {}) => {
      FROM services s
      LEFT JOIN bookings b ON b.service_id = s.id
        AND b.booking_date IS NOT NULL
-       ${clause}
+       ${dateCl} ${seedCl}
      GROUP  BY s.id, s.name, s.duration_minutes, s.price
      ORDER  BY total_bookings DESC, total_revenue DESC
-     LIMIT  $${nextIdx}`,
-    [...values, limit]
+     LIMIT  $${si}`,
+    [...dateVals, ...seedVals, limit]
   );
 
   return rows;
@@ -246,8 +268,10 @@ const getPopularServices = async ({ from, to, limit = 10 } = {}) => {
  * Revenue split by service (pie-chart friendly).
  * Returns: { service_id, service_name, revenue, revenue_pct }
  */
-const getRevenueByService = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getRevenueByService = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `WITH svc_rev AS (
@@ -259,7 +283,7 @@ const getRevenueByService = async ({ from, to } = {}) => {
        LEFT JOIN bookings b ON b.service_id = s.id
          AND b.status IN ('confirmed','completed')
          AND b.payment_status = 'paid'
-         ${clause}
+         ${dateCl} ${seedCl}
        GROUP BY s.id, s.name
      ),
      total AS (SELECT SUM(revenue) AS grand_total FROM svc_rev)
@@ -286,8 +310,10 @@ const getRevenueByService = async ({ from, to } = {}) => {
  * Which hours of the day are most popular for bookings?
  * Returns rows: { hour (0-23), bookings }
  */
-const getBookingsByHour = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getBookingsByHour = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `SELECT
@@ -295,7 +321,7 @@ const getBookingsByHour = async ({ from, to } = {}) => {
        COUNT(*)                                  AS bookings
      FROM bookings b
      WHERE b.status NOT IN ('cancelled')
-       ${clause}
+       ${dateCl} ${seedCl}
      GROUP BY EXTRACT(HOUR FROM b.start_time)
      ORDER BY hour ASC`,
     values
@@ -308,8 +334,10 @@ const getBookingsByHour = async ({ from, to } = {}) => {
  * Which days of the week get the most bookings?
  * Returns rows: { dow (0=Sun … 6=Sat), day_name, bookings }
  */
-const getBookingsByDayOfWeek = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getBookingsByDayOfWeek = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `SELECT
@@ -318,7 +346,7 @@ const getBookingsByDayOfWeek = async ({ from, to } = {}) => {
        COUNT(*)                                            AS bookings
      FROM bookings b
      WHERE b.status NOT IN ('cancelled')
-       ${clause}
+       ${dateCl} ${seedCl}
      GROUP BY EXTRACT(DOW FROM b.booking_date), TO_CHAR(b.booking_date, 'Day')
      ORDER BY dow ASC`,
     values
@@ -331,14 +359,16 @@ const getBookingsByDayOfWeek = async ({ from, to } = {}) => {
  * Booking status distribution.
  * Returns rows: { status, count, pct }
  */
-const getStatusDistribution = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getStatusDistribution = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di);
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `WITH counts AS (
        SELECT b.status, COUNT(*) AS cnt
        FROM bookings b
-       WHERE 1=1 ${clause}
+       WHERE 1=1 ${dateCl} ${seedCl}
        GROUP BY b.status
      ),
      total AS (SELECT SUM(cnt) AS n FROM counts)
@@ -362,8 +392,9 @@ const getStatusDistribution = async ({ from, to } = {}) => {
  * Top customers by total spend or booking count.
  * @param {'revenue'|'bookings'} sortBy
  */
-const getTopCustomers = async ({ from, to, limit = 10, sortBy = 'revenue' } = {}) => {
-  const { clause, values, nextIdx } = dateRangeClause(from, to, 'b.booking_date', 1);
+const getTopCustomers = async ({ from, to, seedOnly, limit = 10, sortBy = 'revenue' } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'b.booking_date', 1);
+  const { clause: seedCl, values: seedVals, nextIdx: si } = seedFilter(seedOnly, di, 'u.id');
   const orderCol = sortBy === 'bookings' ? 'total_bookings' : 'total_spent';
 
   const { rows } = await query(
@@ -381,13 +412,14 @@ const getTopCustomers = async ({ from, to, limit = 10, sortBy = 'revenue' } = {}
        )::NUMERIC(12,2)                                          AS total_spent,
        MAX(b.booking_date)::TEXT                                  AS last_booking_date
      FROM users u
-     LEFT JOIN bookings b ON b.user_id = u.id ${clause}
+     LEFT JOIN bookings b ON b.user_id = u.id ${dateCl}
      WHERE u.role = 'user'
+       ${seedCl}
      GROUP  BY u.id, u.name, u.email, u.created_at
      HAVING COUNT(b.id) > 0
      ORDER  BY ${orderCol} DESC
-     LIMIT  $${nextIdx}`,
-    [...values, limit]
+     LIMIT  $${si}`,
+    [...dateVals, ...seedVals, limit]
   );
 
   return rows;
@@ -396,8 +428,10 @@ const getTopCustomers = async ({ from, to, limit = 10, sortBy = 'revenue' } = {}
 /**
  * User registration trend by month.
  */
-const getUserGrowthByMonth = async ({ from, to } = {}) => {
-  const { clause, values } = dateRangeClause(from, to, 'u.created_at::DATE', 1);
+const getUserGrowthByMonth = async ({ from, to, seedOnly } = {}) => {
+  const { clause: dateCl, values: dateVals, nextIdx: di } = dateRangeClause(from, to, 'u.created_at::DATE', 1);
+  const { clause: seedCl, values: seedVals } = seedFilter(seedOnly, di, 'u.id');
+  const values = [...dateVals, ...seedVals];
 
   const { rows } = await query(
     `SELECT
@@ -405,7 +439,7 @@ const getUserGrowthByMonth = async ({ from, to } = {}) => {
        COUNT(*)                          AS new_users
      FROM users u
      WHERE u.role = 'user'
-       ${clause}
+       ${dateCl} ${seedCl}
      GROUP  BY TO_CHAR(u.created_at, 'YYYY-MM')
      ORDER  BY month ASC`,
     values
@@ -422,7 +456,7 @@ const getUserGrowthByMonth = async ({ from, to } = {}) => {
  * Compare current period vs previous period of equal length.
  * Returns: { current, previous, changes }
  */
-const getPeriodComparison = async (from, to) => {
+const getPeriodComparison = async (from, to, seedOnly) => {
   const start   = new Date(`${from}T00:00:00Z`);
   const end     = new Date(`${to}T00:00:00Z`);
   const dayDiff = Math.round((end - start) / 86_400_000);
@@ -434,8 +468,8 @@ const getPeriodComparison = async (from, to) => {
   const prevTo   = prevEnd.toISOString().slice(0, 10);
 
   const [current, previous] = await Promise.all([
-    getOverview({ from, to }),
-    getOverview({ from: prevFrom, to: prevTo }),
+    getOverview({ from, to, seedOnly }),
+    getOverview({ from: prevFrom, to: prevTo, seedOnly }),
   ]);
 
   const pct = (curr, prev) => {

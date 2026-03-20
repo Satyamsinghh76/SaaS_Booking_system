@@ -27,6 +27,7 @@ const CalendarService     = require('../services/calendarService');
 const NotificationModel   = require('../models/notificationModel');
 const CalendarModel       = require('../models/calendarModel');
 const TokenModel          = require('../models/tokenModel');
+const { isSeedAdmin }     = require('../utils/seedAccounts');
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -172,6 +173,10 @@ const getBookings = async (req, res, next) => {
     const page    = Math.max(1,   parseInt(req.query.page  || '1',  10));
     const limit   = Math.min(100, parseInt(req.query.limit || '20', 10));
 
+    // Seed-account isolation: seed admin sees only seed-user bookings,
+    // real admin sees only real-user bookings, regular users unaffected.
+    const seedOnly = isAdmin ? isSeedAdmin(req.user.email) : undefined;
+
     const { rows, total } = await BookingModel.findAll({
       userId:        isAdmin ? req.query.user_id : req.user.id,
       serviceId:     req.query.service_id,
@@ -180,6 +185,7 @@ const getBookings = async (req, res, next) => {
       date:          req.query.date,
       from:          req.query.from,
       to:            req.query.to,
+      seedOnly,
       page,
       limit,
     });

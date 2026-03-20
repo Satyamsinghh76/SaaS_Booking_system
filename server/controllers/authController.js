@@ -12,6 +12,7 @@ const {
   revokeAllUserTokens,
 } = require('../config/jwt');
 const logger = require('../config/logger');
+const { SEED_EMAILS } = require('../utils/seedAccounts');
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -112,7 +113,6 @@ const login = async (req, res, next) => {
     }
 
     // Seed accounts bypass email verification entirely
-    const SEED_EMAILS = ['admin@bookflow.com', 'user@bookflow.com'];
     const isSeedAccount = SEED_EMAILS.includes(email.toLowerCase());
 
     if (!user.email_verified && !isSeedAccount) {

@@ -8,6 +8,7 @@ const CalendarService     = require('../services/calendarService');
 const CalendarModel       = require('../models/calendarModel');
 const TokenModel          = require('../models/tokenModel');
 const Q = require('../utils/analyticsQueries');
+const { isSeedAdmin }     = require('../utils/seedAccounts');
 
 // ── Shared helpers ────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ const getAllBookings = async (req, res, next) => {
   try {
     const { page, limit } = parseListParams(req.query);
     const { from, to }    = parseDateRange(req.query);
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     const { rows, total } = await AdminBookingModel.findAll({
       userId:        req.query.user_id,
@@ -60,6 +62,7 @@ const getAllBookings = async (req, res, next) => {
       paymentStatus: req.query.payment_status,
       date:          req.query.date,
       search:        req.query.search,
+      seedOnly,
       from,
       to,
       page,
@@ -105,6 +108,7 @@ const getAllUsers = async (req, res, next) => {
   try {
     const { page, limit } = parseListParams(req.query);
     const { from, to }    = parseDateRange(req.query);
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     // Parse isActive: "true" → true, "false" → false, absent → undefined
     let isActive;
@@ -115,6 +119,7 @@ const getAllUsers = async (req, res, next) => {
       role:     req.query.role,
       isActive,
       search:   req.query.search,
+      seedOnly,
       from,
       to,
       page,
@@ -208,12 +213,13 @@ const getAnalyticsOverview = async (req, res, next) => {
   try {
     const range = req.query.from ? parseDateRange(req.query) : defaultRange();
     const { from, to } = range;
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     // Run all overview queries in parallel
     const [overview, userStats, comparison] = await Promise.all([
-      Q.getOverview({ from, to }),
-      Q.getUserStats({ from, to }),
-      Q.getPeriodComparison(from, to),
+      Q.getOverview({ from, to, seedOnly }),
+      Q.getUserStats({ from, to, seedOnly }),
+      Q.getPeriodComparison(from, to, seedOnly),
     ]);
 
     return res.json({
@@ -269,12 +275,13 @@ const getRevenueAnalytics = async (req, res, next) => {
   try {
     const { from, to }  = req.query.from ? parseDateRange(req.query) : defaultRange();
     const granularity   = req.query.granularity === 'month' ? 'month' : 'day';
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     const [timeSeries, byService] = await Promise.all([
       granularity === 'month'
-        ? Q.getRevenueByMonth({ from, to })
-        : Q.getRevenueByDay({ from, to }),
-      Q.getRevenueByService({ from, to }),
+        ? Q.getRevenueByMonth({ from, to, seedOnly })
+        : Q.getRevenueByDay({ from, to, seedOnly }),
+      Q.getRevenueByService({ from, to, seedOnly }),
     ]);
 
     // Compute totals from timeSeries
@@ -313,8 +320,9 @@ const getServiceAnalytics = async (req, res, next) => {
   try {
     const { from, to } = req.query.from ? parseDateRange(req.query) : defaultRange();
     const limit        = Math.min(50, parseInt(req.query.limit || '10', 10));
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
-    const services = await Q.getPopularServices({ from, to, limit });
+    const services = await Q.getPopularServices({ from, to, seedOnly, limit });
 
     // Identify the top service for each dimension
     const topByBookings = services[0]?.service_name ?? null;
@@ -345,11 +353,12 @@ const getServiceAnalytics = async (req, res, next) => {
 const getBookingPatterns = async (req, res, next) => {
   try {
     const { from, to } = req.query.from ? parseDateRange(req.query) : defaultRange();
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     const [byHour, byDow, statusDist] = await Promise.all([
-      Q.getBookingsByHour({ from, to }),
-      Q.getBookingsByDayOfWeek({ from, to }),
-      Q.getStatusDistribution({ from, to }),
+      Q.getBookingsByHour({ from, to, seedOnly }),
+      Q.getBookingsByDayOfWeek({ from, to, seedOnly }),
+      Q.getStatusDistribution({ from, to, seedOnly }),
     ]);
 
     // Find peak hour and day
@@ -385,10 +394,11 @@ const getUserAnalytics = async (req, res, next) => {
     const { from, to } = req.query.from ? parseDateRange(req.query) : defaultRange();
     const limit        = Math.min(50, parseInt(req.query.limit || '10', 10));
     const sortBy       = req.query.sort_by === 'bookings' ? 'bookings' : 'revenue';
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     const [topCustomers, growth] = await Promise.all([
-      Q.getTopCustomers({ from, to, limit, sortBy }),
-      Q.getUserGrowthByMonth({ from, to }),
+      Q.getTopCustomers({ from, to, seedOnly, limit, sortBy }),
+      Q.getUserGrowthByMonth({ from, to, seedOnly }),
     ]);
 
     return res.json({
@@ -416,6 +426,7 @@ const getUserAnalytics = async (req, res, next) => {
 const getDashboard = async (req, res, next) => {
   try {
     const { from, to } = req.query.from ? parseDateRange(req.query) : defaultRange();
+    const seedOnly = isSeedAdmin(req.user.email) ? true : false;
 
     const [
       overview,
@@ -429,16 +440,16 @@ const getDashboard = async (req, res, next) => {
       topCustomers,
       comparison,
     ] = await Promise.all([
-      Q.getOverview({ from, to }),
-      Q.getUserStats({ from, to }),
-      Q.getRevenueByDay({ from, to }),
-      Q.getPopularServices({ from, to, limit: 5 }),
-      Q.getRevenueByService({ from, to }),
-      Q.getBookingsByHour({ from, to }),
-      Q.getBookingsByDayOfWeek({ from, to }),
-      Q.getStatusDistribution({ from, to }),
-      Q.getTopCustomers({ from, to, limit: 5 }),
-      Q.getPeriodComparison(from, to),
+      Q.getOverview({ from, to, seedOnly }),
+      Q.getUserStats({ from, to, seedOnly }),
+      Q.getRevenueByDay({ from, to, seedOnly }),
+      Q.getPopularServices({ from, to, seedOnly, limit: 5 }),
+      Q.getRevenueByService({ from, to, seedOnly }),
+      Q.getBookingsByHour({ from, to, seedOnly }),
+      Q.getBookingsByDayOfWeek({ from, to, seedOnly }),
+      Q.getStatusDistribution({ from, to, seedOnly }),
+      Q.getTopCustomers({ from, to, seedOnly, limit: 5 }),
+      Q.getPeriodComparison(from, to, seedOnly),
     ]);
 
     return res.json({

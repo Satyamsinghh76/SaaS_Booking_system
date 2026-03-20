@@ -1,5 +1,6 @@
 const { query, getClient } = require('../config/database');
 const { guardSlot }         = require('../utils/doubleBookingGuard');
+const { SEED_EMAILS }       = require('../utils/seedAccounts');
 
 /** Public columns returned in every booking response. */
 const BOOKING_COLS = `
@@ -46,7 +47,7 @@ const BookingModel = {
    * List bookings with flexible filters.
    * userId scopes results to a single customer; omit for admin view.
    */
-  async findAll({ userId, serviceId, status, paymentStatus, date, from, to, page = 1, limit = 20 } = {}) {
+  async findAll({ userId, serviceId, status, paymentStatus, date, from, to, seedOnly, page = 1, limit = 20 } = {}) {
     const conditions = [];
     const values     = [];
     let   idx        = 1;
@@ -58,6 +59,15 @@ const BookingModel = {
     if (date)          { conditions.push(`b.booking_date    = $${idx++}`); values.push(date); }
     if (from)          { conditions.push(`b.booking_date   >= $${idx++}`); values.push(from); }
     if (to)            { conditions.push(`b.booking_date   <= $${idx++}`); values.push(to); }
+
+    // Seed-account isolation: seed admin sees only seed-user bookings, real admin sees only real-user bookings
+    if (seedOnly === true) {
+      conditions.push(`b.user_id IN (SELECT id FROM users WHERE email = ANY($${idx++}::TEXT[]))`);
+      values.push(SEED_EMAILS);
+    } else if (seedOnly === false) {
+      conditions.push(`b.user_id NOT IN (SELECT id FROM users WHERE email = ANY($${idx++}::TEXT[]))`);
+      values.push(SEED_EMAILS);
+    }
 
     const where  = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const offset = (page - 1) * limit;

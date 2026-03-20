@@ -1,6 +1,7 @@
 'use strict';
 
-const { query } = require('../config/database');
+const { query }        = require('../config/database');
+const { SEED_EMAILS }  = require('../utils/seedAccounts');
 
 // ── Shared column lists ───────────────────────────────────────
 
@@ -80,7 +81,7 @@ const AdminBookingModel = {
   async findAll({
     userId, serviceId, status, paymentStatus,
     date, from, to,
-    search,
+    search, seedOnly,
     page = 1, limit = 20,
   } = {}) {
     const conditions = ['1=1'];
@@ -94,6 +95,15 @@ const AdminBookingModel = {
     if (date)          { conditions.push(`b.booking_date   = $${idx++}::DATE`); values.push(date); }
     if (from)          { conditions.push(`b.booking_date  >= $${idx++}::DATE`); values.push(from); }
     if (to)            { conditions.push(`b.booking_date  <= $${idx++}::DATE`); values.push(to); }
+
+    // Seed-account isolation
+    if (seedOnly === true) {
+      conditions.push(`b.user_id IN (SELECT id FROM users WHERE email = ANY($${idx++}::TEXT[]))`);
+      values.push(SEED_EMAILS);
+    } else if (seedOnly === false) {
+      conditions.push(`b.user_id NOT IN (SELECT id FROM users WHERE email = ANY($${idx++}::TEXT[]))`);
+      values.push(SEED_EMAILS);
+    }
 
     // Full-text search across user name, email, service name
     if (search) {
@@ -158,7 +168,7 @@ const AdminUserModel = {
    */
   async findAll({
     role, isActive, search,
-    from, to,
+    from, to, seedOnly,
     page = 1, limit = 20,
     sortBy = 'created_at', sortDir = 'desc',
   } = {}) {
@@ -168,6 +178,15 @@ const AdminUserModel = {
 
     if (role !== undefined)     { conditions.push(`u.role      = $${idx++}`); values.push(role); }
     if (isActive !== undefined) { conditions.push(`u.is_active = $${idx++}`); values.push(isActive); }
+
+    // Seed-account isolation
+    if (seedOnly === true) {
+      conditions.push(`u.id IN (SELECT id FROM users WHERE email = ANY($${idx++}::TEXT[]))`);
+      values.push(SEED_EMAILS);
+    } else if (seedOnly === false) {
+      conditions.push(`u.id NOT IN (SELECT id FROM users WHERE email = ANY($${idx++}::TEXT[]))`);
+      values.push(SEED_EMAILS);
+    }
 
     if (search) {
       conditions.push(`(u.name ILIKE $${idx} OR u.email ILIKE $${idx})`);
