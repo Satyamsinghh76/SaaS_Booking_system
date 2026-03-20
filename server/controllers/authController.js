@@ -111,7 +111,11 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: INVALID_MSG });
     }
 
-    if (!user.email_verified) {
+    // Seed accounts bypass email verification entirely
+    const SEED_EMAILS = ['admin@bookflow.com', 'user@bookflow.com'];
+    const isSeedAccount = SEED_EMAILS.includes(email.toLowerCase());
+
+    if (!user.email_verified && !isSeedAccount) {
       // For admin accounts, send a fresh verification email on every blocked attempt
       if (user.role === 'admin') {
         const crypto = require('crypto');
@@ -156,8 +160,8 @@ const login = async (req, res, next) => {
     // Strip password_hash and email_verified from response
     const { password_hash, email_verified, ...safeUser } = user;
 
-    // For admin users: reset email_verified so next login requires re-verification
-    if (user.role === 'admin') {
+    // For admin users: reset email_verified so next login requires re-verification (skip seed accounts)
+    if (user.role === 'admin' && !isSeedAccount) {
       const { query } = require('../config/database');
       query('UPDATE users SET email_verified = false WHERE id = $1', [user.id])
         .catch((err) => logger.error('Failed to reset admin email_verified', { error: err.message }));
