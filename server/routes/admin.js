@@ -8,6 +8,7 @@ const {
   getBookingById,
   confirmBooking,
   cancelBooking,
+  deleteBooking,
   getAllUsers,
   getUserById,
   updateUserStatus,
@@ -82,6 +83,7 @@ router.get('/bookings', validateDateRange, bookingListRules, getAllBookings);
 router.get('/bookings/:id', validateUuidParam('id'), getBookingById);
 router.patch('/bookings/:id/confirm', validateUuidParam('id'), confirmBooking);
 router.patch('/bookings/:id/cancel', validateUuidParam('id'), cancelBooking);
+router.delete('/bookings/:id', validateUuidParam('id'), deleteBooking);
 
 // Users
 router.get('/users', validateDateRange, userListRules, getAllUsers);

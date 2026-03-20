@@ -157,6 +157,13 @@ const AdminBookingModel = {
     );
     return rows[0] ?? null;
   },
+
+  /** Hard-delete a booking and its related records. */
+  async hardDelete(id) {
+    await query('DELETE FROM booking_events WHERE booking_id = $1', [id]);
+    const { rowCount } = await query('DELETE FROM bookings WHERE id = $1', [id]);
+    return rowCount > 0;
+  },
 };
 
 // ── User model ────────────────────────────────────────────────

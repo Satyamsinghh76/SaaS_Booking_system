@@ -614,12 +614,29 @@ const cancelBooking = async (req, res, next) => {
   }
 };
 
+/**
+ * DELETE /api/admin/bookings/:id
+ * Permanently remove a booking and its audit trail.
+ */
+const deleteBooking = async (req, res, next) => {
+  try {
+    const deleted = await AdminBookingModel.hardDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+    return res.json({ success: true, message: 'Booking deleted.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   // Bookings
   getAllBookings,
   getBookingById,
   confirmBooking,
   cancelBooking,
+  deleteBooking,
   // Users
   getAllUsers,
   getUserById,

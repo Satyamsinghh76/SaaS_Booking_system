@@ -25,6 +25,7 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -349,6 +350,23 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const deleteBooking = async (id: string) => {
+    if (!confirm('Permanently delete this booking? This cannot be undone.')) return
+    setActionLoading(id)
+    setActionMessage(null)
+    try {
+      await apiClient.delete(`/api/admin/bookings/${id}`)
+      setRealBookings(prev => prev.filter(b => b.id !== id))
+      setActionMessage({ text: 'Booking deleted permanently.', type: 'success' })
+    } catch (err) {
+      console.error('Failed to delete booking:', err)
+      setActionMessage({ text: 'Failed to delete booking.', type: 'error' })
+    } finally {
+      setActionLoading(null)
+      setTimeout(() => setActionMessage(null), 4000)
+    }
+  }
+
   const recentBookings = bookings.slice(0, 10)
 
   return (
@@ -653,6 +671,10 @@ export default function AdminDashboardPage() {
                                 Cancel booking
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => deleteBooking(booking.id)}>
+                              <Trash2 className="h-3.5 w-3.5 mr-2" />
+                              Delete booking
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
