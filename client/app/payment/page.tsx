@@ -22,7 +22,7 @@ function formatTime12h(time24: string) {
 export default function PaymentPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-stone-950 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     }>
@@ -160,14 +160,14 @@ function PaymentPageContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-stone-950 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading booking details...</p>
+          <p className="text-gray-600 dark:text-stone-400">Loading booking details...</p>
         </motion.div>
       </div>
     );
@@ -175,14 +175,14 @@ function PaymentPageContent() {
 
   if (error && !booking) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-stone-950 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full"
         >
-          <Alert className="border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">
+          <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50">
+            <AlertDescription className="text-red-800 dark:text-red-300">
               {error}
             </AlertDescription>
           </Alert>
@@ -193,15 +193,15 @@ function PaymentPageContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-stone-950 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
-          <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
-          <p className="text-gray-600 mb-6">Redirecting to your bookings...</p>
+          <CheckCircle className="h-16 w-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Payment Successful!</h2>
+          <p className="text-gray-600 dark:text-stone-400 mb-6">Redirecting to your bookings...</p>
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
         </motion.div>
       </div>
@@ -209,7 +209,7 @@ function PaymentPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-stone-950 py-12 px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -217,18 +217,18 @@ function PaymentPageContent() {
         className="max-w-2xl mx-auto"
       >
         {/* Demo Mode Banner */}
-        <Alert className="mb-6 border-blue-200 bg-blue-50">
-          <AlertDescription className="text-blue-800">
-            <strong>Demo Payment Mode</strong> – No real transaction will be processed. 
+        <Alert className="mb-6 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
+          <AlertDescription className="text-blue-800 dark:text-blue-300">
+            <strong>Demo Payment Mode</strong> – No real transaction will be processed.
             Use any card details to simulate payment.
           </AlertDescription>
         </Alert>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Booking Summary */}
-          <Card>
+          <Card className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-stone-900 dark:text-stone-100">
                 <CreditCard className="h-5 w-5" />
                 Booking Summary
               </CardTitle>
@@ -237,21 +237,21 @@ function PaymentPageContent() {
               {booking && (
                 <>
                   <div>
-                    <Label className="text-sm font-medium text-gray-500">Service</Label>
-                    <p className="font-semibold">{booking.service_name}</p>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-stone-400">Service</Label>
+                    <p className="font-semibold text-stone-900 dark:text-stone-100">{booking.service_name}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-500">Date</Label>
-                    <p className="font-semibold">{new Date(booking.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-stone-400">Date</Label>
+                    <p className="font-semibold text-stone-900 dark:text-stone-100">{new Date(booking.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-500">Time</Label>
-                    <p className="font-semibold">{formatTime12h(booking.start_time)} – {formatTime12h(booking.end_time)}</p>
+                    <Label className="text-sm font-medium text-gray-500 dark:text-stone-400">Time</Label>
+                    <p className="font-semibold text-stone-900 dark:text-stone-100">{formatTime12h(booking.start_time)} – {formatTime12h(booking.end_time)}</p>
                   </div>
-                  <div className="pt-4 border-t">
+                  <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">Total Amount</span>
-                      <span className="text-2xl font-bold text-blue-600">
+                      <span className="text-lg font-semibold text-stone-900 dark:text-stone-100">Total Amount</span>
+                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                         ${booking.price_snapshot}
                       </span>
                     </div>
@@ -262,14 +262,14 @@ function PaymentPageContent() {
           </Card>
 
           {/* Payment Form */}
-          <Card>
+          <Card className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800">
             <CardHeader>
-              <CardTitle>Payment Details</CardTitle>
+              <CardTitle className="text-stone-900 dark:text-stone-100">Payment Details</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handlePayment} className="space-y-4">
                 <div>
-                  <Label htmlFor="cardNumber">Card Number</Label>
+                  <Label htmlFor="cardNumber" className="text-stone-700 dark:text-stone-300">Card Number</Label>
                   <Input
                     id="cardNumber"
                     type="text"
@@ -280,14 +280,14 @@ function PaymentPageContent() {
                     required
                     disabled={processing}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
                     Demo: Use 4242 4242 4242 4242
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="expiry">Expiry Date</Label>
+                    <Label htmlFor="expiry" className="text-stone-700 dark:text-stone-300">Expiry Date</Label>
                     <Input
                       id="expiry"
                       type="text"
@@ -298,12 +298,12 @@ function PaymentPageContent() {
                       required
                       disabled={processing}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
                       Any future date
                     </p>
                   </div>
                   <div>
-                    <Label htmlFor="cvc">CVC</Label>
+                    <Label htmlFor="cvc" className="text-stone-700 dark:text-stone-300">CVC</Label>
                     <Input
                       id="cvc"
                       type="text"
@@ -314,15 +314,15 @@ function PaymentPageContent() {
                       required
                       disabled={processing}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-stone-400 mt-1">
                       Demo: Use 123
                     </p>
                   </div>
                 </div>
 
                 {error && (
-                  <Alert className="border-red-200 bg-red-50">
-                    <AlertDescription className="text-red-800">
+                  <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50">
+                    <AlertDescription className="text-red-800 dark:text-red-300">
                       {error}
                     </AlertDescription>
                   </Alert>

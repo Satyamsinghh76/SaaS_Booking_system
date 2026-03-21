@@ -164,7 +164,7 @@ export default function BookingsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
             Your Bookings
           </h1>
           <p className="text-stone-500 mt-1 text-sm">
@@ -173,7 +173,7 @@ export default function BookingsPage() {
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Link href="/booking">
-            <Button className="bg-stone-900 hover:bg-stone-800 text-white rounded-xl h-10 px-5 shadow-lg shadow-stone-900/15">
+            <Button className="bg-stone-900 dark:bg-white hover:bg-stone-800 dark:hover:bg-stone-200 text-white dark:text-stone-900 rounded-xl h-10 px-5 shadow-lg shadow-stone-900/15 dark:shadow-white/10">
               <Plus className="mr-2 h-4 w-4" />
               New booking
             </Button>
@@ -189,7 +189,7 @@ export default function BookingsPage() {
         transition={{ delay: 0.15 }}
       >
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-stone-100/60 p-1 rounded-xl w-fit">
+        <div className="flex items-center gap-1 bg-stone-100/60 dark:bg-stone-800/60 p-1 rounded-xl w-fit">
           {tabs.map((tab) => {
             const count = tabCounts[tab.value as keyof typeof tabCounts]
             const isActive = statusFilter === tab.value
@@ -200,8 +200,8 @@ export default function BookingsPage() {
                 className={cn(
                   'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                   isActive
-                    ? 'bg-white text-stone-900 shadow-sm'
-                    : 'text-stone-500 hover:text-stone-700'
+                    ? 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 shadow-sm'
+                    : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
                 )}
               >
                 {tab.label}
@@ -223,7 +223,7 @@ export default function BookingsPage() {
             placeholder="Search by service name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-11 rounded-xl border-stone-200 bg-white shadow-sm"
+            className="pl-10 h-11 rounded-xl border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-sm"
           />
         </div>
       </motion.div>
@@ -233,11 +233,11 @@ export default function BookingsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-stone-100 rounded-2xl animate-pulse" />
+              <div key={i} className="h-24 bg-stone-100 dark:bg-stone-800 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : error ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white rounded-2xl border border-stone-200 shadow-sm space-y-3">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200 dark:border-white/10 shadow-sm space-y-3">
             <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
             <p className="text-stone-500">{error}</p>
             <Button variant="outline" onClick={loadBookings} className="rounded-xl">Retry</Button>
@@ -256,8 +256,8 @@ export default function BookingsPage() {
             ))}
           </motion.div>
         ) : (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white rounded-2xl border border-stone-200">
-            <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto mb-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200 dark:border-white/10">
+            <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center mx-auto mb-4">
               <CalendarDays className="h-6 w-6 text-stone-400" />
             </div>
             <p className="text-stone-500 font-medium">No bookings found</p>
@@ -274,7 +274,7 @@ export default function BookingsPage() {
       <Dialog open={!!cancellingBooking} onOpenChange={() => !isCancelling && setCancellingBooking(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-stone-900">
+            <DialogTitle className="flex items-center gap-2 text-stone-900 dark:text-stone-100">
               <AlertCircle className="h-5 w-5 text-red-500" />
               Cancel Booking
             </DialogTitle>
@@ -286,15 +286,15 @@ export default function BookingsPage() {
             <div className="p-4 bg-stone-50 rounded-xl space-y-2.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-stone-400">Service</span>
-                <span className="font-medium text-stone-800">{cancellingBooking.serviceName}</span>
+                <span className="font-medium text-stone-800 dark:text-stone-200">{cancellingBooking.serviceName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-stone-400">Date</span>
-                <span className="font-medium text-stone-800">{format(new Date(cancellingBooking.date + 'T00:00:00'), 'MMMM d, yyyy')}</span>
+                <span className="font-medium text-stone-800 dark:text-stone-200">{format(new Date(cancellingBooking.date + 'T00:00:00'), 'MMMM d, yyyy')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-stone-400">Time</span>
-                <span className="font-medium text-stone-800">{formatTime12h(cancellingBooking.time)}</span>
+                <span className="font-medium text-stone-800 dark:text-stone-200">{formatTime12h(cancellingBooking.time)}</span>
               </div>
             </div>
           )}
@@ -303,7 +303,7 @@ export default function BookingsPage() {
               variant="outline"
               onClick={() => setCancellingBooking(null)}
               disabled={isCancelling}
-              className="flex-1 rounded-xl border-stone-300 text-stone-700 hover:bg-stone-50"
+              className="flex-1 rounded-xl border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800"
             >
               Keep Booking
             </Button>
@@ -323,7 +323,7 @@ export default function BookingsPage() {
       <Dialog open={!!reschedulingBooking} onOpenChange={() => !isRescheduling && setReschedulingBooking(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-stone-900">
+            <DialogTitle className="flex items-center gap-2 text-stone-900 dark:text-stone-100">
               <RotateCcw className="h-5 w-5 text-lime-600" />
               Reschedule Booking
             </DialogTitle>
@@ -336,7 +336,7 @@ export default function BookingsPage() {
             <div className="space-y-4">
               {/* Current booking info */}
               <div className="p-3 bg-stone-50 rounded-xl text-sm">
-                <p className="font-medium text-stone-800">{reschedulingBooking.serviceName}</p>
+                <p className="font-medium text-stone-800 dark:text-stone-200">{reschedulingBooking.serviceName}</p>
                 <p className="text-stone-400 text-xs mt-0.5">
                   Currently: {format(new Date(reschedulingBooking.date + 'T00:00:00'), 'MMM d, yyyy')} at {formatTime12h(reschedulingBooking.time)}
                 </p>
@@ -431,12 +431,12 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
   })()
 
   return (
-    <div className="group bg-white rounded-2xl border border-stone-200/80 p-5 shadow-sm hover:shadow-md hover:border-stone-300/80 transition-all duration-300">
+    <div className="group bg-white dark:bg-stone-900/80 rounded-2xl border border-stone-200/80 dark:border-white/10 p-5 shadow-sm hover:shadow-md hover:border-stone-300/80 dark:hover:border-white/20 transition-all duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         {/* Icon */}
         <div className={cn(
           'p-3 rounded-xl shrink-0 w-fit',
-          booking.status === 'pending' ? 'bg-amber-50' : booking.status === 'confirmed' ? 'bg-emerald-50' : booking.status === 'completed' ? 'bg-blue-50' : 'bg-stone-100'
+          booking.status === 'pending' ? 'bg-amber-50 dark:bg-amber-950/50' : booking.status === 'confirmed' ? 'bg-emerald-50 dark:bg-emerald-950/50' : booking.status === 'completed' ? 'bg-blue-50 dark:bg-blue-950/50' : 'bg-stone-100 dark:bg-stone-800'
         )}>
           <Briefcase className={cn(
             'h-5 w-5',
@@ -447,7 +447,7 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-stone-900 text-sm">
+            <h3 className="font-bold text-stone-900 dark:text-stone-100 text-sm">
               {booking.serviceName}
             </h3>
             {/* Status badge */}
@@ -478,7 +478,7 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
               <Clock className="h-3.5 w-3.5" />
               {formatTime12h(booking.time)}
             </span>
-            <span className="flex items-center gap-1.5 font-semibold text-stone-800">
+            <span className="flex items-center gap-1.5 font-semibold text-stone-800 dark:text-stone-200">
               <DollarSign className="h-3.5 w-3.5" />
               {booking.price}
             </span>
@@ -496,13 +496,13 @@ function BookingCard({ booking, onCancel, onReschedule }: { booking: Booking; on
                   </Button>
                 </Link>
               )}
-              <Button variant="outline" size="sm" onClick={onReschedule} className="rounded-lg text-xs font-medium h-8 px-3 border-stone-200 text-stone-600 hover:text-stone-900">
+              <Button variant="outline" size="sm" onClick={onReschedule} className="rounded-lg text-xs font-medium h-8 px-3 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100">
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />
                 Reschedule
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-stone-400 hover:text-stone-700">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-stone-400 hover:text-stone-700 dark:hover:text-stone-300">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>

@@ -46,6 +46,8 @@ function LoginPageContent() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true)
     setApiError(null)
+    // Clear any stale token so the interceptor doesn't attach it / trigger refresh
+    localStorage.removeItem('access_token')
     try {
       const user = await api.auth.login({ email: data.email, password: data.password })
       setCurrentUser(user)
