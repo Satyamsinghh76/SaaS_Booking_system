@@ -45,13 +45,9 @@ export function TawkChat() {
     const s = document.createElement('script')
     s.id = 'tawk-script'
     s.async = true
-    s.src = 'https://embed.tawk.to/default/default'
+    s.src = 'https://embed.tawk.to/69be382a8bee711c35e6449f/1jk7gmq42'
     s.charset = 'UTF-8'
     s.setAttribute('crossorigin', '*')
-
-    // Replace with your actual Tawk.to property/widget IDs:
-    // s.src = 'https://embed.tawk.to/YOUR_PROPERTY_ID/YOUR_WIDGET_ID'
-    // For now we use the default demo widget.
 
     document.head.appendChild(s)
 
