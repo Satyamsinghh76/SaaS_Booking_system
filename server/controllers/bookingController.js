@@ -19,7 +19,7 @@
 
 'use strict';
 
-const { query }           = require('../config/database');
+const { query, getClient } = require('../config/database');
 const BookingModel        = require('../models/bookingModel');
 const NotificationService = require('../services/notificationService');
 const TwilioService       = require('../services/twilioService');
@@ -381,31 +381,48 @@ const rescheduleBooking = async (req, res, next) => {
 
     const { service, endTime } = await resolveServiceAndEndTime(booking.service_id, start_time);
 
-    // Check for overlapping bookings on the new date/time (exclude current booking)
-    const { rows: conflicts } = await query(
-      `SELECT id FROM bookings
-       WHERE service_id = $1
-         AND booking_date = $2
-         AND status NOT IN ('cancelled', 'no_show')
-         AND id != $3
-         AND start_time < $5
-         AND end_time > $4`,
-      [booking.service_id, date, req.params.id, start_time, endTime]
-    );
+    // Wrap overlap check + update in a transaction to prevent race conditions
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
 
-    if (conflicts.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'This time slot is already booked. Please choose a different time.',
-        code: 'SLOT_CONFLICT',
-      });
+      // Advisory lock on service+date to serialize concurrent reschedules
+      const lockKey = Buffer.from(`${booking.service_id}${date}`).reduce((a, b) => a + b, 0);
+      await client.query('SELECT pg_advisory_xact_lock($1)', [lockKey]);
+
+      const { rows: conflicts } = await client.query(
+        `SELECT id FROM bookings
+         WHERE service_id = $1
+           AND booking_date = $2
+           AND status NOT IN ('cancelled', 'no_show')
+           AND id != $3
+           AND start_time < $5
+           AND end_time > $4`,
+        [booking.service_id, date, req.params.id, start_time, endTime]
+      );
+
+      if (conflicts.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          success: false,
+          message: 'This time slot is already booked. Please choose a different time.',
+          code: 'SLOT_CONFLICT',
+        });
+      }
+
+      await client.query(
+        `UPDATE bookings SET booking_date = $1, start_time = $2, end_time = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [date, start_time, endTime, req.params.id]
+      );
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
     }
-
-    await query(
-      `UPDATE bookings SET booking_date = $1, start_time = $2, end_time = $3, updated_at = NOW()
-       WHERE id = $4`,
-      [date, start_time, endTime, req.params.id]
-    );
 
     const updated = await BookingModel.findById(req.params.id);
 

@@ -159,8 +159,8 @@ function LoginPageContent() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Link href="/signup" className="group inline-flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors border-b border-stone-400 pb-0.5">
-                Start using BookFlow →
+              <Link href="/signup" className="group inline-flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 transition-colors border-b border-stone-400 pb-0.5">
+                Start using BookFlow
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </motion.div>
@@ -362,7 +362,7 @@ function LoginPageContent() {
                   }}
                   onError={() => setApiError('Google sign-in failed. Please try again.')}
                   size="large"
-                  width="340"
+                  width="300"
                   text="continue_with"
                   shape="pill"
                   theme="outline"

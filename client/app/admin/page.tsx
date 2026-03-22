@@ -67,7 +67,7 @@ function buildStats(bookings: AdminBooking[]) {
   const real = bookings
   const active = real.filter(b => b.status !== 'cancelled')
   const paid = active.filter(b => b.paymentStatus === 'paid')
-  const totalRevenue = paid.reduce((s, b) => s + b.amount, 0)
+  const totalRevenue = paid.reduce((s, b) => s + (b.amount || 0), 0)
   const totalBookings = real.length
   const cancelledCount = real.filter(b => b.status === 'cancelled').length
   const uniqueUsers = new Set(active.map(b => b.email)).size

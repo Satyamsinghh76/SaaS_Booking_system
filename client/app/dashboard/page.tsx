@@ -354,10 +354,10 @@ export default function DashboardPage() {
           <div className="px-6 pb-6">
             {/* Table header */}
             <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-semibold text-stone-400 uppercase tracking-wider">
-              <div className="col-span-5">Service</div>
+              <div className="col-span-8 sm:col-span-5">Service</div>
               <div className="col-span-3 hidden sm:block">Date & Time</div>
               <div className="col-span-2 hidden sm:block">Status</div>
-              <div className="col-span-2 text-right">Amount</div>
+              <div className="col-span-4 sm:col-span-2 text-right">Amount</div>
             </div>
 
             <div className="space-y-2">
@@ -370,7 +370,7 @@ export default function DashboardPage() {
                   className="grid grid-cols-12 gap-4 items-center px-4 py-3.5 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors group"
                 >
                   {/* Service */}
-                  <div className="col-span-5 flex items-center gap-3 min-w-0">
+                  <div className="col-span-8 sm:col-span-5 flex items-center gap-3 min-w-0">
                     <div className="p-2 bg-lime-50 rounded-lg shrink-0">
                       <CalendarDays className="h-4 w-4 text-lime-600" />
                     </div>
@@ -404,7 +404,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Amount */}
-                  <div className="col-span-2 text-right">
+                  <div className="col-span-4 sm:col-span-2 text-right">
                     <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">${booking.price}</p>
                     {booking.paymentStatus !== 'paid' && (
                       <Link href={`/payment?bookingId=${booking.id}`}>

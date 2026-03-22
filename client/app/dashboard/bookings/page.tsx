@@ -120,7 +120,9 @@ export default function BookingsPage() {
       await api.bookings.cancelBooking(cancellingBooking.id)
       setCancellingBooking(null)
       loadBookings()
-    } catch {
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to cancel booking. Please try again.')
+    } finally {
       setIsCancelling(false)
     }
   }
@@ -189,7 +191,7 @@ export default function BookingsPage() {
         transition={{ delay: 0.15 }}
       >
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-stone-100/60 dark:bg-stone-800/60 p-1 rounded-xl w-fit">
+        <div className="flex items-center gap-1 bg-stone-100/60 dark:bg-stone-800/60 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
           {tabs.map((tab) => {
             const count = tabCounts[tab.value as keyof typeof tabCounts]
             const isActive = statusFilter === tab.value
@@ -357,7 +359,7 @@ export default function BookingsPage() {
               {/* Time picker */}
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-stone-500 uppercase tracking-wider">New Time</Label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {BUSINESS_HOURS.map((time) => (
                     <button
                       key={time}

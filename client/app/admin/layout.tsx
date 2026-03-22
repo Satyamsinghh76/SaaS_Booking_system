@@ -21,14 +21,26 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       window.history.replaceState({}, '', '/admin')
     }
 
-    if (currentUser) return
+    if (currentUser) {
+      // Redirect non-admin users away from admin pages
+      if (currentUser.role !== 'admin') {
+        router.push('/dashboard')
+      }
+      return
+    }
     const token = urlToken || (typeof window !== 'undefined' ? localStorage.getItem('access_token') : null)
     if (!token) {
       router.push('/login')
       return
     }
     getMe()
-      .then((user) => setCurrentUser(user))
+      .then((user) => {
+        if (user.role !== 'admin') {
+          router.push('/dashboard')
+          return
+        }
+        setCurrentUser(user)
+      })
       .catch(() => {
         localStorage.removeItem('access_token')
         router.push('/login')

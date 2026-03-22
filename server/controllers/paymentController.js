@@ -189,7 +189,7 @@ const createRefund = async (req, res, next) => {
     const { bookingId } = req.params;
     const { reason }    = req.body;
 
-    const booking = await PaymentModel.findBookingForPayment(bookingId, req.user.id === 'admin'
+    const booking = await PaymentModel.findBookingForPayment(bookingId, req.user.role === 'admin'
       ? req.body.user_id ?? req.user.id
       : req.user.id
     ) ?? await (async () => {

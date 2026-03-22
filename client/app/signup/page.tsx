@@ -395,7 +395,7 @@ export default function SignupPage() {
                   }}
                   onError={() => setApiError('Google sign-up failed. Please try again.')}
                   size="large"
-                  width="340"
+                  width="300"
                   text="signup_with"
                   shape="pill"
                   theme="outline"

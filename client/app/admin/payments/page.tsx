@@ -109,7 +109,7 @@ export default function AdminPaymentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
+                  <TableHead className="hidden sm:table-cell">ID</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead className="hidden md:table-cell">Service</TableHead>
                   <TableHead className="hidden sm:table-cell">Date</TableHead>
@@ -131,7 +131,7 @@ export default function AdminPaymentsPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
                     >
-                      <TableCell className="font-mono text-xs text-muted-foreground">{p.id}</TableCell>
+                      <TableCell className="hidden sm:table-cell font-mono text-xs text-muted-foreground">{p.id}</TableCell>
                       <TableCell className="font-medium">{p.customer}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{p.service}</TableCell>
                       <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">

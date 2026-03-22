@@ -66,12 +66,21 @@ export function Navbar() {
 
   const isAdmin = currentUser?.role === 'admin'
 
+  const adminNavDesktop = [
+    { name: 'Dashboard', href: '/admin' },
+    { name: 'Bookings', href: '/admin/bookings' },
+    { name: 'Services', href: '/admin/services' },
+  ]
+
+  const adminNavMobile = [
+    ...adminNavDesktop,
+    { name: 'Analytics', href: '/admin/analytics' },
+    { name: 'Customers', href: '/admin/users' },
+    { name: 'Payments', href: '/admin/payments' },
+  ]
+
   const navigation = isAdmin
-    ? [
-        { name: 'Dashboard', href: '/admin' },
-        { name: 'Bookings', href: '/admin/bookings' },
-        { name: 'Services', href: '/admin/services' },
-      ]
+    ? adminNavDesktop
     : [
         { name: 'Home', href: homeHref },
         { name: 'Services', href: '/services' },
@@ -93,7 +102,7 @@ export function Navbar() {
         animate={{ y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
         className={cn(
-          'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+          'fixed top-0 left-0 right-0 z-50 transition-all duration-300 pt-[env(safe-area-inset-top)]',
           scrolled
             ? 'bg-background/80 backdrop-blur-xl border-b shadow-sm'
             : 'bg-transparent'
@@ -271,12 +280,29 @@ export function Navbar() {
               transition={{ duration: 0.2 }}
             >
               <div className="px-4 py-6 space-y-1">
-                {navigation.map((item, index) => (
+                {/* User profile in mobile menu */}
+                {currentUser && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="flex items-center gap-3 px-4 py-3 mb-3 border-b border-stone-200 dark:border-stone-700"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-lime-400 to-emerald-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                      {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{currentUser.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{currentUser.email}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {(isAdmin ? adminNavMobile : navigation).map((item, index) => (
                   <motion.div
                     key={item.name}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: index * 0.05 }}
                   >
                     <Link
                       href={item.href}
@@ -296,7 +322,7 @@ export function Navbar() {
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: navigation.length * 0.1 }}
+                  transition={{ delay: (isAdmin ? adminNavMobile : navigation).length * 0.05 }}
                   className="pt-4 space-y-2"
                 >
                   {currentUser ? (
