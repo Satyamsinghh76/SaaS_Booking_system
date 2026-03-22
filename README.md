@@ -160,6 +160,14 @@ The platform supports two user roles — **customers** who browse services and b
 | Axios | HTTP client with interceptors |
 | @react-oauth/google | Google sign-in |
 
+### Testing
+
+| Technology | Purpose |
+|---|---|
+| Playwright | End-to-end browser testing (Chromium + mobile) |
+| Jest | Backend unit/integration testing |
+| Supertest | HTTP endpoint assertions |
+
 ### Infrastructure
 
 | Technology | Purpose |
@@ -206,6 +214,12 @@ BookFlow/
 │   │   ├── store.ts                 #   Zustand global state
 │   │   ├── blog-data.ts             #   Blog content
 │   │   └── utils.ts                 #   Helper functions
+│   ├── e2e/                         # Playwright E2E tests
+│   │   ├── auth.spec.ts             #   Login/logout, role-based access
+│   │   ├── booking-flow.spec.ts     #   Full booking wizard flow
+│   │   ├── data-consistency.spec.ts #   Dashboard data + API consistency
+│   │   └── navigation.spec.ts       #   Route loading, 404s, auth guards
+│   ├── playwright.config.ts         # E2E test configuration
 │   └── public/                      # Static assets
 │
 ├── server/                          # Express.js backend
@@ -245,6 +259,8 @@ PostgreSQL 14+ with `btree_gist` extension for overlap constraints.
 | `calendar_sync_log` | Google Calendar sync audit trail |
 | `sms_logs` | Twilio SMS delivery tracking |
 | `user_sms_preferences` | Per-user SMS notification settings |
+| `notifications` | In-app notifications for users |
+| `payment_methods` | Stored payment method details |
 
 ### Key Constraints
 
@@ -439,6 +455,25 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `npm run type-check` | TypeScript type checking |
 | `npm test` | Run backend tests (Jest) |
 | `npm run install:all` | Install root + server + client deps |
+
+### E2E Testing (Playwright)
+
+| Command | Description |
+|---|---|
+| `cd client && npm run test:e2e` | Run all E2E tests (headless Chromium) |
+| `cd client && npm run test:e2e:headed` | Run tests with visible browser |
+| `cd client && npm run test:e2e:ui` | Interactive Playwright UI mode |
+
+> **Note:** The backend must be running on port 5000 before running E2E tests. Playwright auto-starts the Next.js dev server.
+
+**Test coverage:**
+
+| Suite | Tests | Covers |
+|---|---|---|
+| `navigation.spec.ts` | 8 | Route loading, 404 handling, auth redirects |
+| `auth.spec.ts` | 10 | Login/logout, seed accounts, role-based access, error states |
+| `booking-flow.spec.ts` | 6 | Service selection, date/time picker, form validation, full E2E booking |
+| `data-consistency.spec.ts` | 7 | Dashboard stats, booking CRUD via API, admin operations, payment page |
 
 ---
 
