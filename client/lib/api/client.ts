@@ -14,7 +14,7 @@ export const apiClient = axios.create({
   baseURL: API_ROOT,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // sends httpOnly cookie for refresh token
-  timeout: 10_000,
+  timeout: 30_000,
 });
 
 // ── Request interceptor — attach access token ─────────────────
