@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,6 +18,7 @@ import api from '@/lib/api'
 import { GoogleLogin } from '@react-oauth/google'
 import { googleLogin } from '@/lib/api/auth'
 import { useBookingStore } from '@/lib/store'
+import { warmUpServer } from '@/lib/api/server-wake'
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -47,6 +48,11 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    warmUpServer()
+  }, [])
 
   const {
     register,
@@ -66,6 +72,10 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupForm) => {
     setIsLoading(true)
     setApiError(null)
+    setLoadingMessage('Creating account...')
+    const slowTimer = setTimeout(() => {
+      setLoadingMessage('Server is waking up, please wait...')
+    }, 5000)
     try {
       await api.auth.signup({ name: data.name, email: data.email, password: data.password })
       router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
@@ -73,7 +83,10 @@ export default function SignupPage() {
       const axiosErr = err instanceof AxiosError ? err : null
       const status = axiosErr?.response?.status
       const serverMessage = axiosErr?.response?.data?.message as string | undefined
-      if (status === 409) {
+      const isTimeout = !axiosErr?.response && (axiosErr?.code === 'ECONNABORTED' || axiosErr?.code === 'ERR_NETWORK')
+      if (isTimeout) {
+        setApiError('Server is temporarily unavailable. Please try again in a moment.')
+      } else if (status === 409) {
         setApiError('An account with this email already exists.')
       } else if (status === 422 && serverMessage) {
         setApiError(serverMessage)
@@ -83,7 +96,9 @@ export default function SignupPage() {
         setApiError('Something went wrong. Please try again.')
       }
     } finally {
+      clearTimeout(slowTimer)
       setIsLoading(false)
+      setLoadingMessage(null)
     }
   }
 
@@ -355,7 +370,10 @@ export default function SignupPage() {
                     disabled={isLoading}
                   >
                     {isLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{loadingMessage}</span>
+                      </span>
                     ) : (
                       <>
                         Create account
@@ -387,8 +405,9 @@ export default function SignupPage() {
                       const user = await googleLogin(credentialResponse.credential)
                       setCurrentUser(user)
                       router.push(user.role === 'admin' ? '/admin' : '/services')
-                    } catch {
-                      setApiError('Google sign-up failed. Please try again.')
+                    } catch (err) {
+                      const isTimeout = err instanceof AxiosError && !err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK')
+                      setApiError(isTimeout ? 'Server is starting up. Please try again in a moment.' : 'Google sign-up failed. Please try again.')
                     } finally {
                       setIsLoading(false)
                     }

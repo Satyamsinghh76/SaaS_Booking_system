@@ -94,3 +94,31 @@ apiClient.interceptors.response.use(
     }
   }
 );
+
+// ── Retry interceptor — auto-retry on timeout / network errors (cold start) ──
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const config = error.config as InternalAxiosRequestConfig & {
+      _retryCount?: number;
+    };
+    if (!config) return Promise.reject(error);
+
+    // Only retry when the server didn't respond (timeout / network error)
+    const isRetryable =
+      !error.response &&
+      (error.code === 'ECONNABORTED' ||
+        error.code === 'ERR_NETWORK' ||
+        error.message?.includes('timeout'));
+
+    const retryCount = config._retryCount ?? 0;
+    if (!isRetryable || retryCount >= 2) {
+      return Promise.reject(error);
+    }
+
+    config._retryCount = retryCount + 1;
+    // Exponential back-off: 2s, then 4s
+    await new Promise((r) => setTimeout(r, (retryCount + 1) * 2000));
+    return apiClient(config);
+  }
+);

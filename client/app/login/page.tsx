@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,6 +18,7 @@ import api from '@/lib/api'
 import { googleLogin } from '@/lib/api/auth'
 import { useBookingStore } from '@/lib/store'
 import { GoogleLogin } from '@react-oauth/google'
+import { warmUpServer } from '@/lib/api/server-wake'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -34,6 +35,11 @@ function LoginPageContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    warmUpServer()
+  }, [])
 
   const {
     register,
@@ -46,6 +52,10 @@ function LoginPageContent() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true)
     setApiError(null)
+    setLoadingMessage('Signing in...')
+    const slowTimer = setTimeout(() => {
+      setLoadingMessage('Server is waking up, please wait...')
+    }, 5000)
     // Clear any stale token so the interceptor doesn't attach it / trigger refresh
     localStorage.removeItem('access_token')
     try {
@@ -57,7 +67,10 @@ function LoginPageContent() {
       const status = axiosErr?.response?.status
       const serverMessage = axiosErr?.response?.data?.message as string | undefined
       const errorCode = axiosErr?.response?.data?.code
-      if (status === 403 && errorCode === 'EMAIL_NOT_VERIFIED') {
+      const isTimeout = !axiosErr?.response && (axiosErr?.code === 'ECONNABORTED' || axiosErr?.code === 'ERR_NETWORK')
+      if (isTimeout) {
+        setApiError('Server is temporarily unavailable. Please try again in a moment.')
+      } else if (status === 403 && errorCode === 'EMAIL_NOT_VERIFIED') {
         setApiError('Please verify your email before logging in. Check your inbox for the verification link.')
       } else if (status === 401 || status === 400) {
         setApiError('Invalid email or password. Please try again.')
@@ -67,7 +80,9 @@ function LoginPageContent() {
         setApiError('Something went wrong. Please try again.')
       }
     } finally {
+      clearTimeout(slowTimer)
       setIsLoading(false)
+      setLoadingMessage(null)
     }
   }
 
@@ -325,7 +340,10 @@ function LoginPageContent() {
                     disabled={isLoading}
                   >
                     {isLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{loadingMessage}</span>
+                      </span>
                     ) : (
                       'Login'
                     )}
@@ -354,8 +372,9 @@ function LoginPageContent() {
                       const user = await googleLogin(credentialResponse.credential)
                       setCurrentUser(user)
                       router.push(user.role === 'admin' ? '/admin' : '/services')
-                    } catch {
-                      setApiError('Google sign-in failed. Please try again.')
+                    } catch (err) {
+                      const isTimeout = err instanceof AxiosError && !err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK')
+                      setApiError(isTimeout ? 'Server is starting up. Please try again in a moment.' : 'Google sign-in failed. Please try again.')
                     } finally {
                       setIsLoading(false)
                     }
