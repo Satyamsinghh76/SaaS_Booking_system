@@ -52,6 +52,10 @@ build/
 # ── Test coverage ──────────────────────────────────
 coverage/
 
+# ── Claude Code ───────────────────────────────────
+.claude/
+CLAUDE.md
+
 # ── Misc ───────────────────────────────────────────
 .vercel
 .turbo
