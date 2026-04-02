@@ -55,6 +55,7 @@ coverage/
 # ── Claude Code ───────────────────────────────────
 .claude/
 CLAUDE.md
+INTERVIEW_CHEATSHEET.md
 
 # ── Misc ───────────────────────────────────────────
 .vercel

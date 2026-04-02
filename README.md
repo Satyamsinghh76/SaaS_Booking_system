@@ -2,15 +2,16 @@
 
 # BookFlow
 
-**A full-stack SaaS booking platform for modern businesses**
+**A production-grade SaaS booking platform for service-based businesses**
 
-Manage appointments, services, payments, notifications, and analytics — all from one dashboard.
+Online scheduling, payments, automated reminders, real-time analytics, and admin tools — all in one platform.
 
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?style=flat-square&logo=playwright&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 [Live Demo](https://booking-system-by-satyam.vercel.app) · [Report Bug](https://github.com/Satyamsinghh76/SaaS_Booking_system/issues) · [Request Feature](https://github.com/Satyamsinghh76/SaaS_Booking_system/issues)
@@ -26,14 +27,15 @@ Manage appointments, services, payments, notifications, and analytics — all fr
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [Database Overview](#database-overview)
-- [API Endpoints](#api-endpoints)
+- [Database Schema](#database-schema)
+- [API Reference](#api-reference)
 - [Getting Started](#getting-started)
 - [Available Scripts](#available-scripts)
+- [Testing](#testing)
 - [Deployment](#deployment)
-- [Security Features](#security-features)
-- [Monitoring & Logging](#monitoring--logging)
-- [Future Improvements](#future-improvements)
+- [Security](#security)
+- [Monitoring & Reliability](#monitoring--reliability)
+- [Future Roadmap](#future-roadmap)
 - [Contributing](#contributing)
 - [License](#license)
 - [Author](#author)
@@ -42,9 +44,21 @@ Manage appointments, services, payments, notifications, and analytics — all fr
 
 ## Overview
 
-BookFlow is a production-grade SaaS booking platform built as a full-stack monorepo. It provides everything a service-based business needs: online scheduling, payment collection, automated reminders, real-time analytics, and admin management tools.
+BookFlow is a full-stack monorepo SaaS booking platform built with Node.js, Express, PostgreSQL, Next.js, and React. It provides everything a service-based business needs to operate online.
 
-The platform supports two user roles — **customers** who browse services and book appointments, and **admins** who manage the platform, confirm bookings, track revenue, and oversee operations.
+**Two user roles:**
+- **Customers** — browse services, book appointments, manage bookings, make payments, receive notifications
+- **Admins** — manage the platform, confirm/cancel bookings, CRUD services, track revenue, oversee users
+
+**Key engineering highlights:**
+- 3-layer double-booking prevention (PostgreSQL advisory locks + overlap queries + EXCLUDE constraint)
+- JWT authentication with refresh token rotation
+- AI-powered slot recommendations
+- Multi-channel notifications (email + SMS + in-app)
+- Google Calendar sync
+- Stripe payment integration (with demo mode)
+- Server pre-warming and auto-retry for cold start resilience
+- E2E test suite (Playwright) + backend tests (Jest)
 
 ---
 
@@ -52,25 +66,25 @@ The platform supports two user roles — **customers** who browse services and b
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENT (Next.js)                        │
-│  App Router · React 19 · Tailwind CSS · Zustand · Framer Motion │
+│                         CLIENT (Next.js 16)                     │
+│  App Router · React 19 · Tailwind CSS 4 · Zustand · Shadcn/ui  │
 └──────────────────────────────┬──────────────────────────────────┘
                                │ HTTPS / REST
                                ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                       API SERVER (Express.js)                    │
-│  JWT Auth · Rate Limiting · Validation · Winston Logging         │
-│                                                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐   │
-│  │  Routes   │ │  Ctrl    │ │  Models  │ │  Middleware       │   │
-│  │  12 files │ │  handlers│ │  SQL/PG  │ │  auth · validate  │   │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘   │
+│                      API SERVER (Express.js)                    │
+│  JWT Auth · Rate Limiting · Validation · Winston Logging        │
+│                                                                 │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
+│  │ 12 Route │ │ 10 Ctrl  │ │ 9 Models │ │  7 Middleware     │  │
+│  │ Modules  │ │ Handlers │ │ SQL/PG   │ │  auth · validate  │  │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘  │
 └───────┬──────────┬──────────┬──────────┬───────────────────────┘
         │          │          │          │
         ▼          ▼          ▼          ▼
 ┌──────────┐ ┌──────────┐ ┌────────┐ ┌──────────────┐
 │PostgreSQL│ │  Brevo   │ │ Twilio │ │ Google APIs   │
-│ Database │ │HTTP Email│ │  SMS   │ │ OAuth + Cal   │
+│ 14 tables│ │HTTP Email│ │  SMS   │ │ OAuth + Cal   │
 └──────────┘ └──────────┘ └────────┘ └──────────────┘
 ```
 
@@ -82,42 +96,43 @@ The platform supports two user roles — **customers** who browse services and b
 
 | Feature | Description |
 |---|---|
-| Google OAuth + Email Login | Sign up with Google or email/password with verification |
-| Service Browsing | Search, filter by category, grid/list view with 3D tilt cards |
-| Smart Booking Wizard | 3-step flow: Service → Date & Time → Confirm |
-| Slot Recommendations | AI-powered suggestions based on availability patterns |
-| Booking Management | View, reschedule, cancel bookings from dashboard |
-| Demo Payments | Simulated card payment with validation (MM/YY, CVV, expiry) |
-| Notifications | In-app bell icon + email + SMS confirmations and reminders |
-| Google Calendar | Add bookings to Google Calendar with one click |
-| Dark / Light Mode | Theme toggle persisted in localStorage |
-| Settings | Profile, password change, notification preferences, billing history |
+| **Authentication** | Google OAuth + email/password signup with email verification |
+| **Service Browsing** | Search, category filters, grid/list view with 3D tilt cards |
+| **Smart Booking Wizard** | 3-step flow: Service → Date & Time → Confirm |
+| **AI Slot Recommendations** | Suggestions based on availability patterns |
+| **Booking Management** | View, reschedule, cancel from personal dashboard |
+| **Demo Payments** | Simulated card payment with full validation (number, MM/YY, CVV) |
+| **Multi-Channel Notifications** | In-app bell icon + email confirmations + SMS reminders |
+| **Google Calendar Sync** | Add bookings to Google Calendar with one click |
+| **Dark / Light Theme** | Toggle persisted to localStorage with system preference fallback |
+| **User Settings** | Profile editing, password change, notification preferences, billing history |
+| **Live Chat** | Tawk.to support widget across all pages |
 
 ### Admin Features
 
 | Feature | Description |
 |---|---|
-| Admin Dashboard | Real-time KPI cards, revenue charts, top services, reviews |
-| Revenue Analytics | Switchable weekly / monthly / yearly views (2020–present) |
-| Booking Management | Confirm, complete, or cancel any booking with notifications |
-| Service CRUD | Create, edit, delete services with categories and pricing |
-| Email 2FA | Admin login requires email verification on every attempt |
-| Customer Visibility | View customer name, email, phone, and booking details |
+| **Analytics Dashboard** | Real-time KPI cards, revenue charts, top services, user metrics |
+| **Revenue Analytics** | Weekly / monthly / yearly views with date range filtering |
+| **Booking Management** | Confirm, complete, or cancel any booking (triggers notifications) |
+| **Service CRUD** | Create, edit, delete services with categories, pricing, and duration |
+| **User Management** | View all users, toggle active/inactive status |
+| **Email 2FA** | Admin login requires email verification on every attempt |
+| **Booking Audit Trail** | Full event history for every booking (status changes, payments, actors) |
 
-### Platform Features
+### Platform & Reliability
 
 | Feature | Description |
 |---|---|
-| Double-Booking Prevention | PostgreSQL EXCLUDE constraint + advisory locks |
-| Rate Limiting | 200 req/15min general, 20 req/15min auth |
-| JWT + Refresh Tokens | Access token rotation with httpOnly refresh cookies |
-| Graceful Shutdown | 30s drain period with DB pool cleanup |
-| Health Checks | `/health` (liveness) and `/ready` (readiness with DB check) |
-| Email Delivery | Brevo HTTP API (production) with SMTP fallback (dev) |
-| Email Support | Contact form sends HTML emails to admin inbox |
-| Live Chat | Tawk.to integration across all pages |
-| Blog | Full articles with slug-based routing |
-| Static Pages | Features, Pricing, About, Docs, Help, Privacy, Terms, Cookies |
+| **Double-Booking Prevention** | 3-layer: advisory locks → overlap queries → PostgreSQL EXCLUDE constraint |
+| **Cold Start Resilience** | Server pre-warming on page load + auto-retry with exponential backoff |
+| **Rate Limiting** | 200 req/15min general, 20 req/15min auth (skips successful requests) |
+| **JWT + Refresh Tokens** | Short-lived access token (15m) with httpOnly refresh cookie rotation (7d) |
+| **Graceful Shutdown** | 30s drain period — stops new connections, drains in-flight, closes DB pool |
+| **Health Probes** | `/health` liveness (zero I/O) + `/ready` readiness (DB latency check, 3s timeout) |
+| **Email Delivery** | Brevo HTTP API (production, 300/day free) with SMTP fallback (development) |
+| **Structured Logging** | Winston JSON logs with daily rotation + request correlation IDs |
+| **Blog & Static Pages** | Blog with slug routing, Features, Pricing, About, Docs, Help, Privacy, Terms, Cookies |
 
 ---
 
@@ -129,20 +144,21 @@ The platform supports two user roles — **customers** who browse services and b
 |---|---|
 | Node.js 20+ | Runtime |
 | Express.js 4.19 | HTTP framework |
-| PostgreSQL 14+ | Primary database |
+| PostgreSQL 14+ | Primary database (with `btree_gist` extension) |
 | pg (node-postgres) | Database driver with connection pooling |
 | jsonwebtoken | JWT access and refresh tokens |
 | bcryptjs | Password hashing (12 salt rounds) |
 | Brevo API | Transactional email via HTTP (production) |
-| Nodemailer | Email via SMTP (local development fallback) |
-| Twilio | SMS confirmations and reminders |
+| Nodemailer | Email via SMTP (development fallback) |
+| Twilio SDK | SMS confirmations and reminders |
 | googleapis | Google Calendar sync |
-| Stripe SDK | Payment processing (demo mode) |
+| Stripe SDK | Payment processing (with demo mode) |
 | Winston | Structured logging with daily rotation |
 | node-cron | Scheduled SMS reminder jobs |
-| express-validator | Input validation |
-| Helmet | Security headers |
-| express-rate-limit | API rate limiting |
+| express-validator | Input validation and sanitization |
+| Helmet | Security headers (HSTS, CSP, X-Frame-Options) |
+| express-rate-limit | API rate limiting per IP |
+| hpp | HTTP parameter pollution protection |
 
 ### Frontend
 
@@ -151,22 +167,23 @@ The platform supports two user roles — **customers** who browse services and b
 | Next.js 16.1.6 | React framework (App Router) |
 | React 19 | UI library |
 | Tailwind CSS 4 | Utility-first styling |
-| Radix UI + Shadcn/ui | Accessible component primitives |
+| Radix UI + Shadcn/ui | 40+ accessible component primitives |
 | Zustand | Client state management |
-| React Hook Form + Zod | Form handling and validation |
-| Framer Motion | Animations and transitions |
-| Recharts | Data visualization |
+| React Hook Form + Zod | Form handling and schema validation |
+| Framer Motion | Animations and page transitions |
+| Recharts | Dashboard data visualization |
 | React Parallax Tilt | 3D card hover effects |
-| Axios | HTTP client with interceptors |
-| @react-oauth/google | Google sign-in |
+| Axios | HTTP client with request/response interceptors |
+| @react-oauth/google | Google sign-in integration |
+| next-themes | Dark mode with system preference support |
 
 ### Testing
 
 | Technology | Purpose |
 |---|---|
-| Playwright | End-to-end browser testing (Chromium + mobile) |
-| Jest | Backend unit/integration testing |
-| Supertest | HTTP endpoint assertions |
+| Playwright 1.58 | E2E testing (Chromium desktop + iPhone 14 mobile) |
+| Jest 29.7 | Backend unit and integration testing |
+| Supertest 6.3 | HTTP endpoint assertions |
 
 ### Infrastructure
 
@@ -174,7 +191,7 @@ The platform supports two user roles — **customers** who browse services and b
 |---|---|
 | pnpm | Frontend package manager |
 | npm | Backend + root package manager |
-| concurrently | Run server + client in parallel |
+| concurrently | Parallel dev server execution |
 | nodemon | Backend hot reload |
 | dotenv | Environment variable management |
 
@@ -185,95 +202,147 @@ The platform supports two user roles — **customers** who browse services and b
 ```
 BookFlow/
 │
-├── client/                          # Next.js frontend
+├── client/                          # Next.js frontend (pnpm)
 │   ├── app/                         # App Router pages
-│   │   ├── admin/                   #   Admin dashboard, bookings, services
-│   │   ├── booking/                 #   Multi-step booking wizard
-│   │   ├── dashboard/               #   User dashboard, bookings, history, settings
-│   │   ├── login/                   #   Login (email + Google OAuth)
-│   │   ├── signup/                  #   Registration with email verification
+│   │   ├── admin/                   #   Dashboard, bookings, services, analytics, settings
+│   │   ├── booking/                 #   Multi-step wizard + success page
+│   │   ├── dashboard/               #   User bookings, history, settings
+│   │   ├── login/ & signup/         #   Auth pages (email + Google OAuth)
 │   │   ├── services/                #   Service listing with filters
 │   │   ├── payment/                 #   Demo payment page
 │   │   ├── support/                 #   Email support form
-│   │   ├── blog/                    #   Blog listing + [slug] articles
-│   │   ├── features/                #   Features showcase
-│   │   ├── pricing/                 #   Pricing plans
-│   │   ├── about/                   #   About page
-│   │   ├── help/                    #   Help center with FAQ
-│   │   ├── documentation/           #   Platform docs
-│   │   ├── privacy/                 #   Privacy policy
-│   │   ├── terms/                   #   Terms of service
-│   │   └── cookies/                 #   Cookie policy
+│   │   ├── blog/                    #   Articles with [slug] routing
+│   │   ├── verify-email/            #   Email verification handler
+│   │   └── features/, pricing/,     #   Marketing & legal pages
+│   │       about/, help/, docs/,
+│   │       privacy/, terms/, cookies/
 │   ├── components/                  # Reusable components
-│   │   ├── ui/                      #   Shadcn/ui primitives
-│   │   ├── dashboard/               #   Notification bell, sidebar
+│   │   ├── ui/                      #   Shadcn/ui primitives (40+ components)
+│   │   ├── admin/                   #   Admin sidebar
+│   │   ├── dashboard/               #   Notification bell, user sidebar
 │   │   ├── navbar.tsx               #   Global navigation (role-aware)
-│   │   └── footer.tsx               #   Site footer
-│   ├── lib/                         # Utilities
-│   │   ├── api/                     #   API client modules (auth, bookings, payments)
+│   │   ├── footer.tsx               #   Site footer
+│   │   ├── theme-provider.tsx       #   Dark mode provider
+│   │   ├── google-oauth-provider.tsx
+│   │   └── tawk-chat.tsx            #   Live chat widget
+│   ├── lib/                         # Utilities & API layer
+│   │   ├── api/                     #   API clients (auth, bookings, payments, services)
+│   │   │   ├── client.ts            #   Axios instance with interceptors + auto-retry
+│   │   │   └── server-wake.ts       #   Server pre-warming for cold starts
 │   │   ├── store.ts                 #   Zustand global state
-│   │   ├── blog-data.ts             #   Blog content
 │   │   └── utils.ts                 #   Helper functions
 │   ├── e2e/                         # Playwright E2E tests
 │   │   ├── auth.spec.ts             #   Login/logout, role-based access
 │   │   ├── booking-flow.spec.ts     #   Full booking wizard flow
 │   │   ├── data-consistency.spec.ts #   Dashboard data + API consistency
 │   │   └── navigation.spec.ts       #   Route loading, 404s, auth guards
-│   ├── playwright.config.ts         # E2E test configuration
-│   └── public/                      # Static assets
+│   └── playwright.config.ts         # E2E test configuration
 │
-├── server/                          # Express.js backend
-│   ├── config/                      #   Database pool, JWT, logger, env validation
-│   ├── controllers/                 #   Request handlers (auth, booking, service, etc.)
-│   ├── middleware/                   #   Auth, validation, error handler, rate limiter
-│   ├── models/                      #   PostgreSQL query layer
-│   ├── routes/                      #   12 route modules
-│   ├── services/                    #   Email, SMS, notification services
-│   ├── utils/                       #   Double-booking guard, recommendations engine
-│   ├── jobs/                        #   Cron scheduler (SMS reminders)
+├── server/                          # Express.js backend (npm)
+│   ├── config/                      # Configuration
+│   │   ├── database.js              #   PostgreSQL pool + connection management
+│   │   ├── env.js                   #   Environment validation
+│   │   ├── jwt.js                   #   Token generation/verification
+│   │   ├── logger.js                #   Winston structured logging
+│   │   └── stripe.js                #   Stripe client setup
+│   ├── controllers/                 # Request handlers (10 files)
+│   │   ├── authController.js        #   Login, signup, OAuth, email verify, refresh
+│   │   ├── bookingController.js     #   CRUD, status transitions, reschedule
+│   │   ├── paymentController.js     #   Stripe checkout, demo payments, refunds
+│   │   ├── adminController.js       #   Analytics, user/booking management
+│   │   ├── serviceController.js     #   Service CRUD
+│   │   ├── calendarController.js    #   Google Calendar OAuth + sync
+│   │   ├── smsController.js         #   Twilio SMS send/preferences
+│   │   ├── availabilityController.js#   Time window management
+│   │   ├── recommendationController.js # AI slot suggestions
+│   │   └── webhookHandler.js        #   Stripe webhook (signature-verified, idempotent)
+│   ├── middleware/                   # Express middleware (7 files)
+│   │   ├── auth.js                  #   JWT verify, role-based access, optional auth
+│   │   ├── errorHandler.js          #   Global error handler (sanitized responses)
+│   │   ├── requestId.js             #   Correlation ID per request
+│   │   └── validate*.js             #   Input validation (booking, payment, service, etc.)
+│   ├── models/                      # Database query layer (9 files)
+│   ├── routes/                      # API routes (12 modules)
+│   ├── services/                    # Business logic
+│   │   ├── notificationService.js   #   Email notifications (Brevo + Nodemailer)
+│   │   ├── twilioService.js         #   SMS via Twilio
+│   │   ├── calendarService.js       #   Google Calendar sync
+│   │   ├── stripeService.js         #   Stripe payment processing
+│   │   └── recommendationService.js #   AI slot recommendation engine
+│   ├── utils/
+│   │   ├── doubleBookingGuard.js    #   Advisory lock + overlap detection
+│   │   └── seedAccounts.js          #   Auto-seed admin/test users
+│   ├── jobs/
+│   │   └── smsReminder.js           #   node-cron SMS reminder scheduler
 │   ├── templates/                   #   HTML email templates
-│   ├── db/                          #   schema.sql (PostgreSQL DDL)
+│   ├── db/
+│   │   └── schema.sql               #   Complete DDL (14 tables, indexes, constraints, seeds)
 │   └── server.js                    #   Application entry point
 │
 ├── package.json                     # Root monorepo scripts
-└── README.md
+├── render.yaml                      # Render deployment config (IaC)
+└── vercel.json                      # Vercel security headers
 ```
 
 ---
 
-## Database Overview
+## Database Schema
 
-PostgreSQL 14+ with `btree_gist` extension for overlap constraints.
+PostgreSQL 14+ with `btree_gist` extension enabled for range overlap constraints.
+
+### Tables (14)
 
 | Table | Purpose |
 |---|---|
-| `users` | Accounts with roles, email/phone verification, OAuth tokens |
-| `services` | Bookable services with duration, price, category |
-| `bookings` | Appointments with status machine, payment tracking, customer info |
+| `users` | Accounts with roles, email verification, phone, OAuth provider |
+| `services` | Bookable services (name, duration, price, category, active status) |
+| `bookings` | Appointments with status machine, payment tracking, price snapshot, customer info |
 | `availability` | Time windows when services accept bookings |
-| `booking_events` | Append-only audit log for every status/payment change |
-| `refresh_tokens` | JWT refresh token storage with revocation |
-| `google_oauth_tokens` | Encrypted Google Calendar credentials |
-| `payment_sessions` | Stripe checkout session tracking |
-| `payment_events` | Stripe webhook event log |
+| `booking_events` | Append-only audit log — every status/payment change with actor + timestamp |
+| `refresh_tokens` | JWT refresh token storage with hash + expiry + revocation |
+| `google_oauth_tokens` | Encrypted Google Calendar credentials per user |
+| `payment_sessions` | Stripe checkout session tracking (amount, status, intent ID) |
+| `payment_events` | Stripe webhook event log (idempotent processing via unique event ID) |
+| `payment_methods` | Stored card details (type, last4, expiry, default flag) |
+| `notifications` | In-app notifications (title, message, type, read status, link) |
 | `calendar_sync_log` | Google Calendar sync audit trail |
-| `sms_logs` | Twilio SMS delivery tracking |
-| `user_sms_preferences` | Per-user SMS notification settings |
-| `notifications` | In-app notifications for users |
-| `payment_methods` | Stored payment method details |
+| `sms_logs` | Twilio SMS delivery tracking (status, SID, message type) |
+| `user_sms_preferences` | Per-user SMS opt-in settings (confirmations, reminders, cancellations) |
 
 ### Key Constraints
 
-- **bookings_no_overlap** — EXCLUDE USING gist prevents double-booking at the database level
-- **availability_no_overlap** — Prevents overlapping availability windows
-- **users_email_unique** — One account per email
-- **services_name_unique** — Unique service names
+| Constraint | Type | Purpose |
+|---|---|---|
+| `bookings_no_overlap` | EXCLUDE USING gist | Prevents double-booking at the database level using `tsrange` overlap detection |
+| `availability_no_overlap` | EXCLUDE USING gist | Prevents overlapping availability windows |
+| `users_email_unique` | UNIQUE | One account per email |
+| `services_name_unique` | UNIQUE | Unique service names |
+
+### Key Indexes
+
+| Index | Purpose |
+|---|---|
+| `idx_bookings_active_slot` | Fast overlap detection (excludes cancelled/no_show) |
+| `idx_bookings_user_date` | User dashboard queries |
+| `idx_bookings_reminder` | SMS reminder cron job |
+| `idx_bookings_slot` | Composite on (service_id, date, start_time, end_time) |
+
+### Booking Status Machine
+
+```
+pending → confirmed → completed
+   ↓         ↓
+cancelled  cancelled / no_show
+```
+
+Payment statuses: `unpaid` → `paid` → `refunded` | `failed`
 
 ---
 
-## API Endpoints
+## API Reference
 
 ### Authentication — `/api/auth`
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | POST | `/signup` | Public | Register with email verification |
@@ -282,65 +351,73 @@ PostgreSQL 14+ with `btree_gist` extension for overlap constraints.
 | GET | `/verify-email` | Public | Verify email via token link |
 | POST | `/refresh` | Cookie | Refresh access token |
 | POST | `/logout` | Cookie | Revoke refresh token |
-| GET | `/me` | Bearer | Get current user |
+| GET | `/me` | Bearer | Get current authenticated user |
 
 ### Bookings — `/api/bookings`
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/` | Bearer | Create booking |
-| GET | `/` | Bearer | List user bookings (admin sees all) |
+| POST | `/` | Bearer | Create booking (with double-booking guard) |
+| GET | `/` | Bearer | List user's bookings (admin sees all, paginated) |
 | GET | `/:id` | Bearer | Get booking details |
-| GET | `/booked-slots` | Bearer | Get booked time slots for a date |
-| GET | `/recommended-slots` | Optional | AI slot recommendations |
-| PATCH | `/:id/status` | Bearer | Update status (confirm/complete/cancel) |
-| PATCH | `/:id/reschedule` | Bearer | Reschedule to new date/time |
+| GET | `/booked-slots` | Bearer | Get taken time slots for a service on a date |
+| GET | `/recommended-slots` | Optional | AI-powered slot suggestions |
+| PATCH | `/:id/status` | Bearer | Update status (confirm/complete/cancel/no_show) |
+| PATCH | `/:id/reschedule` | Bearer | Reschedule to new date/time (with conflict check) |
 | DELETE | `/:id` | Bearer | Cancel booking |
+| PATCH | `/:id/payment` | Admin | Update payment status |
+| GET | `/:id/events` | Admin | Get booking audit trail |
 
 ### Services — `/api/services`
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/` | Public | List active services |
+| GET | `/` | Public | List active services (with search + category filter) |
 | GET | `/:id` | Public | Get service details |
 | POST | `/` | Admin | Create service |
 | PATCH | `/:id` | Admin | Update service |
 | DELETE | `/:id` | Admin | Soft-delete service |
 
 ### Payments — `/api/payments`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/simulate` | Bearer | Demo payment simulation |
-| GET | `/status/:bookingId` | Bearer | Get payment status |
-| POST | `/checkout` | Bearer | Create Stripe session |
-| POST | `/webhook` | Stripe | Stripe webhook handler |
 
-### User Settings — `/api/user`
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/change-password` | Bearer | Change password |
-| GET | `/notifications` | Bearer | Get notifications |
-| POST | `/notifications/:id/read` | Bearer | Mark as read |
-| POST | `/notifications/read-all` | Bearer | Mark all as read |
-| GET | `/payment-methods` | Bearer | List saved cards |
-| GET | `/billing-history` | Bearer | Billing records |
+| POST | `/checkout` | Bearer | Create Stripe checkout session |
+| GET | `/session/:sessionId` | Bearer | Get live session status from Stripe |
+| GET | `/booking/:bookingId` | Bearer | Get payment for a booking |
+| GET | `/status/:bookingId` | Bearer | Get payment status |
+| POST | `/simulate` | Bearer | Demo payment (no Stripe required) |
+| POST | `/:bookingId/refund` | Admin | Initiate Stripe refund |
+| POST | `/webhook` | Stripe | Webhook handler (signature-verified, idempotent) |
 
 ### Admin — `/api/admin`
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/analytics/dashboard` | Admin | Dashboard overview |
-| GET | `/analytics/revenue` | Admin | Revenue breakdown |
-| GET | `/analytics/services` | Admin | Service performance |
-| GET | `/bookings` | Admin | All bookings with filters |
-| GET | `/users` | Admin | User management |
+| GET | `/analytics/dashboard` | Admin | KPI overview (revenue, bookings, customers) |
+| GET | `/analytics/revenue` | Admin | Revenue trends (weekly/monthly/yearly) |
+| GET | `/analytics/services` | Admin | Service performance metrics |
+| GET | `/analytics/bookings` | Admin | Booking pattern analytics |
+| GET | `/analytics/users` | Admin | User acquisition metrics |
+| GET | `/bookings` | Admin | All bookings (paginated, filterable by status/date) |
+| GET | `/bookings/:id` | Admin | Booking details with customer info |
+| PATCH | `/bookings/:id/confirm` | Admin | Confirm booking |
+| PATCH | `/bookings/:id/cancel` | Admin | Cancel booking |
+| GET | `/users` | Admin | User list (paginated, sortable) |
+| GET | `/users/:id` | Admin | User details |
+| PATCH | `/users/:id/status` | Admin | Toggle user active/inactive |
 
 ### Other Routes
-| Prefix | Description |
-|---|---|
-| `/api/availability` | Service availability windows (public read, admin write) |
-| `/api/calendar` | Google Calendar OAuth and sync (admin) |
-| `/api/sms` | Twilio SMS send, preferences, logs |
-| `/api/support` | Support email form (public) |
-| `/health` | Liveness probe |
-| `/ready` | Readiness probe with DB check |
+
+| Prefix | Auth | Description |
+|---|---|---|
+| `/api/availability` | Public read, Admin write | Service availability windows |
+| `/api/calendar` | Admin | Google Calendar OAuth flow and booking sync |
+| `/api/sms` | Bearer | Twilio SMS (send, preferences, logs, delivery status) |
+| `/api/user` | Bearer | Profile, password change, notifications, billing |
+| `/api/support` | Public | Support contact form (sends HTML email) |
+| `/health` | Public | Liveness probe (zero I/O) |
+| `/ready` | Public | Readiness probe (DB connectivity + latency check) |
 
 ---
 
@@ -348,8 +425,8 @@ PostgreSQL 14+ with `btree_gist` extension for overlap constraints.
 
 ### Prerequisites
 
-- **Node.js** 20 or higher
-- **PostgreSQL** 14 or higher
+- **Node.js** 20+
+- **PostgreSQL** 14+
 - **npm** and **pnpm**
 - [Brevo](https://brevo.com) account for production email (free 300/day), or Gmail [App Password](https://support.google.com/accounts/answer/185833) for local SMTP
 - Google Cloud project with OAuth credentials (for Google sign-in)
@@ -368,10 +445,10 @@ npm run install:all
 ### Database Setup
 
 ```bash
-# 1. Create a PostgreSQL database
+# Create a PostgreSQL database
 createdb bookingdb
 
-# 2. Apply the schema (includes seed data for admin + test services)
+# Apply schema (includes seed data — safe to re-run with IF NOT EXISTS / ON CONFLICT)
 psql -U postgres -d bookingdb -f server/db/schema.sql
 ```
 
@@ -396,11 +473,11 @@ JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
 # ── Email ──────────────────────────────────────────
-# Production: use Brevo HTTP API (recommended for cloud hosting)
+# Production: Brevo HTTP API (recommended for cloud hosting)
 BREVO_API_KEY=xkeysib-your-brevo-api-key
 EMAIL_FROM=BookFlow <your-verified-sender@gmail.com>
 
-# Local dev: use Gmail SMTP (fallback when no BREVO_API_KEY)
+# Development: Gmail SMTP (fallback when no BREVO_API_KEY)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_SECURE=true
@@ -416,11 +493,14 @@ TWILIO_ACCOUNT_SID=your-twilio-sid
 TWILIO_AUTH_TOKEN=your-twilio-token
 TWILIO_PHONE_NUMBER=+1234567890
 
-# ── Stripe (optional — demo works without it) ──────
+# ── Stripe (optional — demo mode works without it) ─
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+```
 
-# ── Frontend ────────────────────────────────────────
+Create `client/.env.local`:
+
+```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 ```
@@ -434,7 +514,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-**Seed accounts:**
+**Seed accounts (auto-created on first run):**
+
 | Role | Email | Password |
 |---|---|---|
 | Admin | `admin@bookflow.com` | `Admin123!` |
@@ -444,36 +525,70 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Available Scripts
 
+### Root (Monorepo)
+
 | Command | Description |
 |---|---|
 | `npm run dev` | Start server + client concurrently |
-| `npm run server` | Start backend only |
+| `npm run server` | Start backend only (nodemon) |
 | `npm run client` | Start frontend only |
 | `npm run build` | Build Next.js for production |
 | `npm start` | Start both in production mode |
-| `npm run prod` | Build and start |
-| `npm run type-check` | TypeScript type checking |
+| `npm run prod` | Build + start production |
+| `npm run type-check` | TypeScript type checking (no emit) |
 | `npm test` | Run backend tests (Jest) |
-| `npm run install:all` | Install root + server + client deps |
+| `npm run install:all` | Install root + server + client dependencies |
 
-### E2E Testing (Playwright)
+### Backend (`server/`)
 
 | Command | Description |
 |---|---|
-| `cd client && npm run test:e2e` | Run all E2E tests (headless Chromium) |
-| `cd client && npm run test:e2e:headed` | Run tests with visible browser |
+| `npm run dev` | Start with nodemon (hot reload) |
+| `npm start` | Start in production mode |
+| `npm test` | Run tests once |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
+
+### Frontend (`client/`)
+
+| Command | Description |
+|---|---|
+| `pnpm dev` | Start Next.js dev server |
+| `pnpm build` | Production build |
+| `pnpm start` | Start production server |
+
+---
+
+## Testing
+
+### E2E Tests (Playwright)
+
+| Command | Description |
+|---|---|
+| `cd client && npm run test:e2e` | Run all tests (headless Chromium) |
+| `cd client && npm run test:e2e:headed` | Run with visible browser |
 | `cd client && npm run test:e2e:ui` | Interactive Playwright UI mode |
 
-> **Note:** The backend must be running on port 5000 before running E2E tests. Playwright auto-starts the Next.js dev server.
+> Backend must be running on port 5000. Playwright auto-starts the Next.js dev server.
 
-**Test coverage:**
+**Test suites:**
 
-| Suite | Tests | Covers |
+| Suite | Tests | Coverage |
 |---|---|---|
-| `navigation.spec.ts` | 8 | Route loading, 404 handling, auth redirects |
 | `auth.spec.ts` | 10 | Login/logout, seed accounts, role-based access, error states |
-| `booking-flow.spec.ts` | 6 | Service selection, date/time picker, form validation, full E2E booking |
-| `data-consistency.spec.ts` | 7 | Dashboard stats, booking CRUD via API, admin operations, payment page |
+| `booking-flow.spec.ts` | 6 | Service selection, date/time picker, form validation, full E2E |
+| `data-consistency.spec.ts` | 7 | Dashboard stats, booking CRUD via API, admin operations |
+| `navigation.spec.ts` | 8 | Route loading, 404 handling, auth redirects, mobile viewport |
+
+**Browsers:** Chromium (desktop) + iPhone 14 (mobile viewport)
+
+### Backend Tests (Jest + Supertest)
+
+```bash
+npm test                    # Run once
+npm run test:watch          # Watch mode
+npm run test:coverage       # With coverage report
+```
 
 ---
 
@@ -485,107 +600,107 @@ BookFlow is deployed and live:
 |---|---|---|
 | **Frontend** | Vercel | [booking-system-by-satyam.vercel.app](https://booking-system-by-satyam.vercel.app) |
 | **Backend API** | Render | [booking-system-3rzn.onrender.com](https://booking-system-3rzn.onrender.com) |
-| **Database** | Supabase | PostgreSQL 17 (ap-northeast-2) |
+| **Database** | Supabase | PostgreSQL 17 (connection pooling via port 6543) |
 
-### Deployment Process
-
-#### 1. Database (Supabase)
+### 1. Database (Supabase)
 
 1. Create a project on [supabase.com](https://supabase.com)
-2. Run `server/db/schema.sql` in the SQL Editor — the schema uses `IF NOT EXISTS` and `ON CONFLICT` so it's safe to re-run
+2. Run `server/db/schema.sql` in the SQL Editor (safe to re-run)
 3. Copy the connection string from Settings → Database → URI
 
-#### 2. Backend (Render)
+### 2. Backend (Render)
 
 1. Create a **Web Service** on [render.com](https://render.com) connected to the GitHub repo
 2. Set **Root Directory** to `server`
 3. Set **Build Command** to `npm install` and **Start Command** to `node server.js`
 4. Add environment variables:
 
-| Variable | Description |
+| Variable | Value |
 |---|---|
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | Supabase connection string |
-| `JWT_SECRET` | Random 32+ char string (`openssl rand -hex 32`) |
+| `JWT_SECRET` | `openssl rand -hex 32` |
 | `JWT_REFRESH_SECRET` | Different random 32+ char string |
 | `CORS_ORIGIN` | Vercel frontend URL |
 | `CLIENT_URL` | Vercel frontend URL |
-| `BREVO_API_KEY` | Brevo API key for email delivery ([brevo.com](https://brevo.com)) |
-| `EMAIL_FROM` | Verified sender address (e.g. `BookFlow <you@gmail.com>`) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
-| `NEXT_PUBLIC_API_URL` | Render backend URL (used in email links) |
+| `BREVO_API_KEY` | From [brevo.com](https://brevo.com) |
+| `EMAIL_FROM` | Verified sender (e.g. `BookFlow <you@gmail.com>`) |
+| `GOOGLE_CLIENT_ID` | From [Google Cloud Console](https://console.cloud.google.com/apis/credentials) |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
 | `STRIPE_*` | *(Optional)* Stripe keys for live payments |
 | `TWILIO_*` | *(Optional)* Twilio credentials for SMS |
 
 5. Verify: `GET /health` should return `{"status":"ok"}`
 
-#### 3. Frontend (Vercel)
+### 3. Frontend (Vercel)
 
-1. Import the GitHub repo on [vercel.com](https://vercel.com)
+1. Import the repo on [vercel.com](https://vercel.com)
 2. Set **Root Directory** to `client`
 3. Add environment variables:
 
-| Variable | Description |
+| Variable | Value |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Render backend URL (e.g. `https://your-api.onrender.com`) |
+| `NEXT_PUBLIC_API_URL` | Render backend URL |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth Client ID |
 
-4. Deploy — Vercel auto-detects Next.js and builds with `pnpm`
+4. Deploy — Vercel auto-detects Next.js and builds with pnpm
 
-#### 4. Google OAuth Setup
+### 4. Google OAuth Setup
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → Credentials → OAuth 2.0 Client ID
-2. Add **Authorized JavaScript Origins**: your Vercel URL + `http://localhost:3000`
-3. Add **Authorized Redirect URIs**: your Render URL + `/api/calendar/oauth/callback`
+2. Add **Authorized JavaScript Origins**: Vercel URL + `http://localhost:3000`
+3. Add **Authorized Redirect URIs**: Render URL + `/api/calendar/oauth/callback`
 
-> **Note:** Render free tier spins down after 15 min of inactivity — the first request takes ~30s to cold start. Paid plan ($7/mo) keeps it always on.
+> **Cold starts:** Render free tier spins down after 15 min of inactivity. BookFlow handles this with server pre-warming (health ping on page load) and auto-retry with exponential backoff — so users experience a brief delay instead of an error. Paid plan ($7/mo) keeps it always on.
 >
-> **Email:** Direct SMTP (Gmail) is blocked from most cloud platforms. BookFlow uses [Brevo's HTTP API](https://brevo.com) in production — free 300 emails/day, only requires sender email verification (no domain setup needed).
+> **Email:** Direct SMTP is blocked on most cloud platforms. BookFlow uses [Brevo's HTTP API](https://brevo.com) in production — free 300 emails/day, only requires sender email verification.
 
 ---
 
-## Security Features
+## Security
 
 | Feature | Implementation |
 |---|---|
-| Password Hashing | bcryptjs with 12 salt rounds |
-| JWT Tokens | Short-lived access (15m) + refresh rotation (7d) |
-| HTTPS Headers | Helmet (HSTS, X-Frame-Options, CSP-ready) |
-| Rate Limiting | express-rate-limit per IP |
-| Input Validation | express-validator on all endpoints |
-| SQL Injection | Parameterized queries ($1, $2...) throughout |
-| XSS Prevention | React auto-escaping + Helmet headers |
-| CORS | Strict origin whitelist |
-| HPP | HTTP parameter pollution protection |
-| Admin 2FA | Email verification required on every admin login |
+| **Password Hashing** | bcryptjs with 12 salt rounds |
+| **JWT Tokens** | Short-lived access (15m) + refresh token rotation (7d) with httpOnly cookies |
+| **HTTPS Headers** | Helmet (HSTS, X-Frame-Options, X-Content-Type-Options, CSP-ready) |
+| **Rate Limiting** | express-rate-limit (200/15min general, 20/15min auth — skips successful) |
+| **Input Validation** | express-validator on all endpoints with sanitization |
+| **SQL Injection** | Parameterized queries (`$1, $2...`) throughout — zero string concatenation |
+| **XSS Prevention** | React auto-escaping + Helmet headers + no `dangerouslySetInnerHTML` |
+| **CORS** | Strict origin whitelist per environment |
+| **HPP** | HTTP parameter pollution protection |
+| **Admin 2FA** | Email verification code required on every admin login |
+| **Webhook Security** | Stripe signature verification (HMAC-SHA256) + idempotent event processing |
 
 ---
 
-## Monitoring & Logging
+## Monitoring & Reliability
 
 | Feature | Details |
 |---|---|
-| HTTP Logging | Morgan with custom format (skips health checks) |
-| Application Logs | Winston structured JSON with daily rotation |
-| Correlation IDs | Unique request ID via `X-Request-Id` header |
-| Health Endpoint | `GET /health` — zero I/O liveness check |
-| Readiness Endpoint | `GET /ready` — includes DB latency (3s timeout) |
-| Graceful Shutdown | SIGTERM/SIGINT handlers with 30s connection drain |
-| Error Tracking | Global error middleware with stack traces in dev |
+| **Structured Logging** | Winston JSON format with daily file rotation |
+| **Request Correlation** | Unique ID per request via `X-Request-Id` header |
+| **HTTP Logging** | Morgan with custom format (health check endpoints excluded) |
+| **Health Endpoint** | `GET /health` — zero I/O instant liveness check |
+| **Readiness Endpoint** | `GET /ready` — DB connectivity + latency (3s timeout) |
+| **Graceful Shutdown** | SIGTERM/SIGINT handlers: stop accepting → drain 30s → close DB pool |
+| **Cold Start Handling** | Frontend pre-warms server on page load + Axios auto-retry (2 retries, exponential backoff) |
+| **Error Handling** | Global middleware — sanitized responses (no stack traces in production) |
+| **Cron Jobs** | SMS reminder scheduler (node-cron) for upcoming bookings |
 
 ---
 
-## Future Improvements
+## Future Roadmap
 
-- [ ] Live Stripe payment integration
-- [ ] Two-way Google Calendar sync (automatic event creation)
-- [ ] Mobile app with React Native
-- [ ] AI-powered scheduling optimization
-- [ ] Multi-provider support with provider dashboards
-- [ ] Recurring bookings and subscription plans
-- [ ] Customer reviews and ratings (backend)
-- [ ] Full-text search with PostgreSQL `tsvector`
+- [ ] Live Stripe payment integration (currently demo mode)
+- [ ] Two-way Google Calendar sync (auto-create events on booking)
+- [ ] React Native mobile app
 - [ ] Real-time WebSocket notifications
+- [ ] Recurring bookings and subscription plans
+- [ ] Multi-provider support with provider dashboards
+- [ ] Customer reviews and ratings
+- [ ] Full-text search with PostgreSQL `tsvector`
 - [ ] Internationalization (i18n)
 - [ ] Docker + docker-compose containerization
 - [ ] CI/CD pipeline with GitHub Actions
@@ -634,3 +749,8 @@ THE SOFTWARE.
 
 ---
 
+<div align="center">
+
+**Built by [Satyam Singh](https://github.com/Satyamsinghh76)**
+
+</div>
