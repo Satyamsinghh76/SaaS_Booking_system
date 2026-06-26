@@ -191,8 +191,13 @@ const start = async () => {
     await pool.query('SELECT 1');
     logger.info('Connected to database');
   } catch (error) {
-    logger.error('Database connection failed:', error.message);
-    process.exit(1);
+    logger.error('Database connection failed during startup', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+    });
+    logger.warn('Continuing startup without a confirmed database connection; /ready will report degraded until the DB is reachable.');
   }
 
   // Start SMS reminder scheduler

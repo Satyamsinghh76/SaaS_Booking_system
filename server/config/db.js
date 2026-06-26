@@ -20,10 +20,11 @@ if (process.env.DB_TYPE === 'sqlite') {
   // ── Pool configuration ───────────────────────────────────────
   // DATABASE_URL (Supabase / Render / Heroku) takes priority over individual
   // DB_* vars, which are used for local development.
-  const isLocalhost = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('127.0.0.1');
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  const isLocalhost = databaseUrl?.includes('localhost') || databaseUrl?.includes('127.0.0.1');
   const poolConfig = process.env.DATABASE_URL
     ? {
-        connectionString: process.env.DATABASE_URL,
+        connectionString: databaseUrl,
         // Only enable SSL for remote/cloud databases, not localhost
         ssl: isLocalhost ? false : { rejectUnauthorized: false },
         application_name: 'saas-booking-platform',
@@ -81,6 +82,8 @@ pool.on('error', (err) => {
   const errorContext = {
     message: err.message,
     code: err.code,
+    detail: err.detail,
+    hint: err.hint,
     isSupabase,
   };
   logger.error('Database pool error', errorContext);
